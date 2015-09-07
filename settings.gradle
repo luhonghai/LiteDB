@@ -1,0 +1,5 @@
+/*
+ * Copyright (c) 2015. luhonghai@luhonghai.com
+ */
+
+include ':app', ':litedb'
