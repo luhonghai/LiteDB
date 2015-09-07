@@ -36,7 +36,7 @@ import com.luhonghai.litedb.exception.InvalidAnnotationData;
 /**
  * Created by luhonghai on 07/09/15.
  */
-@LiteDatabase(tables = {Contact.class}, version = 4)
+@LiteDatabase(tables = {Contact.class})
 public class MainDatabaseHelper extends LiteDatabaseHelper {
     /**
      * Construct database service with context of the application.

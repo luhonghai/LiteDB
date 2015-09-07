@@ -33,7 +33,7 @@ import com.luhonghai.litedb.annotation.LiteColumn;
  *
  * Default table entity include default _id column
  */
-public class LiteEntity {
+public abstract class LiteEntity {
 
     @LiteColumn(name = "_id", isPrimaryKey = true, isAutoincrement = true)
     private long id;

@@ -58,7 +58,7 @@ import jodd.datetime.JDateTime;
 /**
  * Created by luhonghai on 07/09/15.
  */
-public abstract class LiteBaseDao<T> {
+public class LiteBaseDao<T> {
 
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
 
@@ -70,7 +70,7 @@ public abstract class LiteBaseDao<T> {
 
     private final SimpleDateFormat sdfDateValue;
 
-    public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class tableClass) {
+    public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class<T> tableClass) {
         this.annotationHelper = new AnnotationHelper(tableClass);
         this.databaseHelper = databaseHelper;
         this.tableClass = tableClass;

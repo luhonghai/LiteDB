@@ -32,6 +32,8 @@ import com.luhonghai.litedb.example.entity.Contact;
 
 /**
  * Created by luhonghai on 9/7/15.
+ * Create this class to implement for custom methods
+ * Or quick usage: LiteBaseDao<Contact> contactDao = new LiteBaseDao<Contact>(databaseHelper, Contact.class);
  */
 public class ContactDao extends LiteBaseDao<Contact> {
 
