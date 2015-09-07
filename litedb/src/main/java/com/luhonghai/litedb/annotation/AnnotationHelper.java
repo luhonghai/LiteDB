@@ -31,6 +31,8 @@ import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 import com.luhonghai.litedb.exception.UnsupportedFieldType;
 
+import java.io.Externalizable;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
@@ -120,7 +122,7 @@ public class AnnotationHelper {
      */
     public final String getCreateTableQuery() throws AnnotationNotFound, UnsupportedFieldType, InvalidAnnotationData {
         StringBuffer sql = new StringBuffer("CREATE TABLE ");
-        sql.append(getTableName());
+        sql.append("[").append(getTableName()).append("]");
         sql.append(" (");
         findColumn(sql, clazz);
         Class<?> parent = clazz.getSuperclass();
@@ -137,7 +139,7 @@ public class AnnotationHelper {
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
             if (liteColumn != null) {
                 String fieldType = getFieldType(field);
-                sql.append(getColumnName(field));
+                sql.append("[").append(getColumnName(field)).append("]");
                 sql.append(" ");
                 sql.append(fieldType);
                 if (liteColumn.isPrimaryKey()) {
@@ -203,9 +205,9 @@ public class AnnotationHelper {
         LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
         if (liteColumn == null) throw new AnnotationNotFound(LiteColumn.class);
         StringBuffer sql = new StringBuffer("ALTER TABLE ");
-        sql.append(getTableName());
+        sql.append("[").append(getTableName()).append("]");
         sql.append(" ADD COLUMN ");
-        sql.append(getColumnName(field));
+        sql.append("[").append(getColumnName(field)).append("]");
         sql.append(" ").append(getFieldType(field));
         if (liteColumn.isAutoincrement()) {
             verifyAutoincrement(field);
@@ -248,8 +250,10 @@ public class AnnotationHelper {
                 || (liteColumn.dateColumnType() == LiteColumnType.TEXT
                 && fieldType.isAssignableFrom(Date.class))) {
             return  LiteColumnType.TEXT.toString();
-        }  else if ((fieldType.isAssignableFrom(Byte[].class)
-                || fieldType.isAssignableFrom(byte[].class))) {
+        }  else if (fieldType.isAssignableFrom(Byte[].class)
+                || fieldType.isAssignableFrom(byte[].class)
+                || Serializable.class.isAssignableFrom(fieldType.getClass())
+                || Externalizable.class.isAssignableFrom(fieldType.getClass())) {
             return  LiteColumnType.BLOB.toString();
         } else if (fieldType.isAssignableFrom(Double.class)
                 || fieldType.isAssignableFrom(double.class)

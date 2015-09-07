@@ -35,8 +35,15 @@ import com.luhonghai.litedb.annotation.LiteColumn;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.io.StreamCorruptedException;
 import java.lang.reflect.Field;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -166,7 +173,9 @@ public abstract class LiteBaseDao<T> {
                     contentValues.put(key, ((Date) fieldValue).getTime());
                     break;
             }
-        } else if (fieldValue instanceof Byte[] || fieldValue instanceof byte[]) {
+        } else if (fieldValue instanceof Byte[] || fieldValue instanceof byte[]
+                || Serializable.class.isAssignableFrom(fieldValue.getClass())
+                || Externalizable.class.isAssignableFrom(fieldValue.getClass())) {
             ByteArrayOutputStream outputStream = null;
             ObjectOutputStream objectOutputStream = null;
             try {
@@ -202,7 +211,7 @@ public abstract class LiteBaseDao<T> {
      * @throws IllegalAccessException
      */
     public Object getValueFromCursor(Cursor cursor, Field field)
-            throws IllegalAccessException, ParseException {
+            throws IllegalAccessException, ParseException, ClassNotFoundException, IOException {
         Class<?> fieldType = field.getType();
         Object value = null;
         int columnIndex = cursor.getColumnIndex(annotationHelper.getColumnName(field));
@@ -252,6 +261,30 @@ public abstract class LiteBaseDao<T> {
                         value = new Date(unixDate);
                     break;
             }
+        } else if (Serializable.class.isAssignableFrom(fieldType.getClass())
+                || Externalizable.class.isAssignableFrom(fieldType.getClass())) {
+            byte[] data = cursor.getBlob(columnIndex);
+            if (data != null && data.length > 0) {
+                ByteArrayInputStream bis = new ByteArrayInputStream(data);
+                ObjectInput in = null;
+                try {
+                    in = new ObjectInputStream(bis);
+                    value = in.readObject();
+                } catch (ClassNotFoundException | IOException e) {
+                    throw e;
+                } finally {
+                    try {
+                        bis.close();
+                    } catch (IOException ex) {
+                    }
+                    try {
+                        if (in != null) {
+                            in.close();
+                        }
+                    } catch (IOException ex) {
+                    }
+                }
+            }
         }
         return value;
     }
@@ -264,7 +297,7 @@ public abstract class LiteBaseDao<T> {
      * @throws IllegalAccessException
      */
     public void bindObject(final T object, final Cursor cursor)
-            throws NoSuchFieldException, IllegalAccessException, ParseException {
+            throws NoSuchFieldException, IllegalAccessException, ParseException, IOException, ClassNotFoundException {
         bindObject(tableClass, object, cursor);
         Class<?> parent = tableClass.getSuperclass();
         if (parent.isAssignableFrom(LiteEntity.class)) {
@@ -282,7 +315,7 @@ public abstract class LiteBaseDao<T> {
      * @throws ParseException
      */
     public void bindObject(final Class clazz, final T object, final Cursor cursor)
-            throws NoSuchFieldException, IllegalAccessException, ParseException {
+            throws NoSuchFieldException, IllegalAccessException, ParseException, IOException, ClassNotFoundException {
         for (Field field : clazz.getDeclaredFields()) {
             if (!field.isAccessible())
                 field.setAccessible(true); // for private variables
@@ -301,7 +334,8 @@ public abstract class LiteBaseDao<T> {
      * @throws InstantiationException
      */
     public List<T> toList(final Cursor cursor)
-            throws IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
+            throws IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException
+            , IOException, ClassNotFoundException {
         List<T> list = new ArrayList<T>();
         if (cursor.moveToFirst()) {
             do {
@@ -323,7 +357,7 @@ public abstract class LiteBaseDao<T> {
      */
     public T toObject(final Cursor cursor) throws IllegalAccessException,
             InstantiationException,
-            NoSuchFieldException, ParseException {
+            NoSuchFieldException, ParseException, IOException, ClassNotFoundException {
         T obj = tableClass.newInstance();
         bindObject(obj, cursor);
         return obj;
@@ -473,7 +507,7 @@ public abstract class LiteBaseDao<T> {
      * @throws InstantiationException
      */
     public T get(Object key) throws AnnotationNotFound, InvalidAnnotationData,
-            IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
+            IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException, IOException, ClassNotFoundException {
         String primaryColumn = annotationHelper.getColumnName(annotationHelper.getPrimaryField());
         Cursor cursor = query("[" + primaryColumn + "] = ?", new String[] {key.toString()});
         if (cursor.moveToFirst()) {
@@ -495,7 +529,7 @@ public abstract class LiteBaseDao<T> {
      * @throws InstantiationException
      */
     public List<T> listAll() throws AnnotationNotFound,
-            IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
+            IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException, IOException, ClassNotFoundException {
         return toList(query(null, null));
     }
 

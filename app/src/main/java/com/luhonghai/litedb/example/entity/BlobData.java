@@ -23,31 +23,37 @@
  *
  *
  */
-package com.luhonghai.litedb.example.db;
 
-import android.content.Context;
+package com.luhonghai.litedb.example.entity;
 
-import com.luhonghai.litedb.LiteDatabaseHelper;
-import com.luhonghai.litedb.annotation.LiteDatabase;
-import com.luhonghai.litedb.example.entity.Contact;
-import com.luhonghai.litedb.exception.AnnotationNotFound;
-import com.luhonghai.litedb.exception.InvalidAnnotationData;
+import java.io.Serializable;
 
 /**
- * Created by luhonghai on 07/09/15.
+ * Created by luhonghai on 9/8/15.
+ *
+ * Example of serializable class for blob column
  */
-@LiteDatabase(tables = {Contact.class}, version = 4)
-public class MainDatabaseHelper extends LiteDatabaseHelper {
-    /**
-     * Construct database service with context of the application.
-     *
-     * @param context the Context within which to work
-     */
-    public MainDatabaseHelper(Context context) throws AnnotationNotFound, InvalidAnnotationData {
-        super(context);
+public class BlobData implements Serializable {
+
+    private String raw;
+
+    public BlobData(String raw) {
+        this.raw = raw;
     }
 
-    public MainDatabaseHelper(Context context, DatabaseListener databaseListener) throws AnnotationNotFound, InvalidAnnotationData {
-        super(context, databaseListener);
+    public String getRaw() {
+        return raw;
+    }
+
+    public void setRaw(String raw) {
+        this.raw = raw;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o != null && o instanceof BlobData) {
+            return this.raw.equals(((BlobData) o).getRaw());
+        }
+        return super.equals(o);
     }
 }

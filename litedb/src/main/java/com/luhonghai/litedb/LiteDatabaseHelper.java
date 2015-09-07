@@ -200,7 +200,7 @@ public abstract class LiteDatabaseHelper {
         private boolean isColumnExists(final SQLiteDatabase db, final String table, final String column) {
             Cursor mCursor = null;
             try {
-                mCursor = db.rawQuery("SELECT * FROM " + table + " LIMIT 0", null);
+                mCursor = db.rawQuery("SELECT * FROM [" + table + "] LIMIT 0", null);
                 return mCursor.getColumnIndex(column) != -1;
             } catch (Exception ex) {
                 // Something went wrong. Missing the database? The table?

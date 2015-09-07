@@ -46,6 +46,18 @@ public class Contact extends LiteEntity {
     private String phone;
 
     @LiteColumn
+    private String job;
+
+    @LiteColumn
+    private float salary;
+
+    @LiteColumn
+    private double balance;
+
+    @LiteColumn
+    private int age;
+
+    @LiteColumn
     private Date createdDate;
 
     @LiteColumn(dateColumnType = LiteColumnType.INTEGER)
@@ -56,6 +68,9 @@ public class Contact extends LiteEntity {
 
     @LiteColumn(dateColumnType = LiteColumnType.TEXT)
     private Date createdDate3;
+
+    @LiteColumn
+    private BlobData blobData;
 
     public String getName() {
         return name;
@@ -103,5 +118,45 @@ public class Contact extends LiteEntity {
 
     public void setCreatedDate3(Date createdDate3) {
         this.createdDate3 = createdDate3;
+    }
+
+    public String getJob() {
+        return job;
+    }
+
+    public void setJob(String job) {
+        this.job = job;
+    }
+
+    public float getSalary() {
+        return salary;
+    }
+
+    public void setSalary(float salary) {
+        this.salary = salary;
+    }
+
+    public double getBalance() {
+        return balance;
+    }
+
+    public void setBalance(double balance) {
+        this.balance = balance;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    public BlobData getBlobData() {
+        return blobData;
+    }
+
+    public void setBlobData(BlobData blobData) {
+        this.blobData = blobData;
     }
 }

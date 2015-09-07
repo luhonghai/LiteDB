@@ -29,18 +29,22 @@ package com.luhonghai.litedb;
 import android.app.Application;
 import android.database.sqlite.SQLiteDatabase;
 import android.test.ApplicationTestCase;
+import android.util.Log;
 
 import com.luhonghai.litedb.example.db.ContactDao;
 import com.luhonghai.litedb.example.db.MainDatabaseHelper;
+import com.luhonghai.litedb.example.entity.BlobData;
 import com.luhonghai.litedb.example.entity.Contact;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * <a href="http://d.android.com/tools/testing/testing_android.html">Testing Fundamentals</a>
@@ -59,7 +63,7 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
      * @throws NoSuchFieldException
      * @throws InstantiationException
      */
-    public void testLiteDatabase() throws AnnotationNotFound, InvalidAnnotationData, IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
+    public void testLiteDatabase() throws AnnotationNotFound, InvalidAnnotationData, IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException, IOException, ClassNotFoundException {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:ss:mm.SSS", Locale.getDefault());
         MainDatabaseHelper databaseHelper = new MainDatabaseHelper(getContext(), new LiteDatabaseHelper.DatabaseListener() {
             @Override
@@ -84,6 +88,7 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
 
             @Override
             public void onError(SQLiteDatabase db, final String message, Throwable throwable) {
+                Log.e("TESTDB", "onError ", throwable);
                 assertEquals("", message);
             }
         });
@@ -113,6 +118,12 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
         // 2 millisecond difference is okay
         assertTrue(Math.abs(contact.getCreatedDate().getTime() - refContact.getCreatedDate2().getTime()) <= 2);
         refContact.setName("2nd Name");
+        refContact.setJob("Job");
+        refContact.setAge(26);
+        refContact.setSalary(3000.0f);
+        refContact.setBalance(Double.MAX_VALUE);
+        BlobData blobData = new BlobData(UUID.randomUUID().toString());
+        refContact.setBlobData(blobData);
         // Try to update record
         contactDao.update(refContact);
         // Try to list all record
@@ -120,6 +131,11 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
         for (Contact mContact : contactList) {
             assertEquals("VN84000000000", mContact.getPhone());
             assertEquals("2nd Name", mContact.getName());
+            assertEquals("Job", mContact.getJob());
+            assertEquals(Double.MAX_VALUE, mContact.getBalance());
+            assertEquals(3000.0f, mContact.getSalary());
+            assertEquals(26, mContact.getAge());
+            assertEquals(blobData, mContact.getBlobData());
         }
 
         contactDao.deleteByKey(id);
