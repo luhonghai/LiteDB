@@ -28,7 +28,6 @@ package com.halosolutions.litedb;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.os.CancellationSignal;
 import android.util.Log;
 
 import com.halosolutions.litedb.annotation.AnnotationHelper;
@@ -395,5 +394,51 @@ public abstract class LiteBaseDao<T> {
      */
     public Cursor query(String selection, String[] selectionArgs) throws AnnotationNotFound {
         return query(selection, selectionArgs, null, null, null, null);
+    }
+
+    /**
+     *
+     * @param key
+     * @return
+     * @throws AnnotationNotFound
+     * @throws InvalidAnnotationData
+     * @throws IllegalAccessException
+     * @throws NoSuchFieldException
+     * @throws InstantiationException
+     */
+    public T get(Object key) throws AnnotationNotFound, InvalidAnnotationData,
+            IllegalAccessException, NoSuchFieldException, InstantiationException {
+        String primaryColumn = annotationHelper.getColumnName(annotationHelper.getPrimaryField());
+        Cursor cursor = query(primaryColumn + "=?", new String[] {key.toString()});
+        if (cursor.moveToFirst()) {
+            return toObject(cursor);
+        }
+        return null;
+    }
+
+    /**
+     *
+     * @return
+     * @throws AnnotationNotFound
+     * @throws IllegalAccessException
+     * @throws NoSuchFieldException
+     * @throws InstantiationException
+     */
+    public List<T> listAll() throws AnnotationNotFound,
+            IllegalAccessException, NoSuchFieldException, InstantiationException {
+        return toList(query(null, null));
+    }
+
+    /**
+     * Get count of record
+     * @return
+     * @throws AnnotationNotFound
+     */
+    public int count() throws AnnotationNotFound {
+        Cursor mCount = databaseHelper.getDatabase().rawQuery("select count(*) from " + annotationHelper.getTableName(), null);
+        mCount.moveToFirst();
+        int count= mCount.getInt(0);
+        mCount.close();
+        return count;
     }
 }

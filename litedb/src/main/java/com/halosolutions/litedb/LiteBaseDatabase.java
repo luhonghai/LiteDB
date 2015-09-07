@@ -49,8 +49,10 @@ public abstract class LiteBaseDatabase {
 
     /** Variable to hold the database instance. */
     private SQLiteDatabase mDB;
+
     /** Database open/upgrade helper. */
     private DatabaseHelper mOpenHelper;
+
     /** The context within which to work. */
     private final Context mContext;
 

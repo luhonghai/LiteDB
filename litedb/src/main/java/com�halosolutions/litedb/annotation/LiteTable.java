@@ -34,19 +34,10 @@ import java.lang.annotation.Target;
 /**
  * Created by luhonghai on 07/09/15.
  */
-
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
-public @interface  LiteColumn {
+@Target(ElementType.TYPE)
+public @interface LiteTable {
 
-    boolean isPrimaryKey() default false;
-
-    boolean isAutoincrement() default false;
-
-    boolean isNotNull() default false;
-
-    /** Column name. */
+    /** Table name. */
     String name() default "";
-
-    String defaultValue() default "";
 }
