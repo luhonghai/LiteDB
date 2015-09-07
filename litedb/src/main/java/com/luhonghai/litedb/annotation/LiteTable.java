@@ -24,19 +24,20 @@
  *
  */
 
-package com.halosolutions.litedb.exception;
+package com.luhonghai.litedb.annotation;
 
-import java.lang.reflect.Field;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Created by luhonghai on 07/09/15.
  */
-public class UnsupportedFieldType extends Exception {
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface LiteTable {
 
-    public UnsupportedFieldType(Class clasz, Field field) {
-        super("Unsupported field type " + field.getType().getName()
-                + ". Field name: "
-                + field.getName()
-                + ". Class: " + clasz);
-    }
+    /** Table name. */
+    String name() default "";
 }

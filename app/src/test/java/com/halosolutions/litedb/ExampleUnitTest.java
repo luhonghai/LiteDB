@@ -1,4 +1,4 @@
-package com.halosolutions.litedb;
+package com.luhonghai.litedb;
 
 import org.junit.Test;
 

@@ -5,7 +5,7 @@ android {
     buildToolsVersion "22.0.1"
 
     defaultConfig {
-        applicationId "com.halosolutions.litedb"
+        applicationId "com.luhonghai.litedb.example"
         minSdkVersion 8
         targetSdkVersion 22
         versionCode 1

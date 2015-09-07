@@ -23,15 +23,31 @@
  *
  *
  */
+package com.luhonghai.litedb.example.db;
 
-package com.halosolutions.litedb.exception;
+import android.content.Context;
+
+import com.luhonghai.litedb.LiteDatabaseHelper;
+import com.luhonghai.litedb.annotation.LiteDatabase;
+import com.luhonghai.litedb.example.entity.Contact;
+import com.luhonghai.litedb.exception.AnnotationNotFound;
+import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
 /**
  * Created by luhonghai on 07/09/15.
  */
-public class InvalidAnnotationData extends Exception {
+@LiteDatabase(tables = {Contact.class})
+public class MainDatabaseHelper extends LiteDatabaseHelper {
+    /**
+     * Construct database service with context of the application.
+     *
+     * @param context the Context within which to work
+     */
+    public MainDatabaseHelper(Context context) throws AnnotationNotFound, InvalidAnnotationData {
+        super(context);
+    }
 
-    public InvalidAnnotationData(String message) {
-        super(message);
+    public MainDatabaseHelper(Context context, DatabaseListener databaseListener) throws AnnotationNotFound, InvalidAnnotationData {
+        super(context, databaseListener);
     }
 }

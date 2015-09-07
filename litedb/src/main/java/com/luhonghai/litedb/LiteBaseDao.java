@@ -24,56 +24,51 @@
  *
  */
 
-package com.halosolutions.litedb;
+package com.luhonghai.litedb;
 
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.util.Log;
 
-import com.halosolutions.litedb.annotation.AnnotationHelper;
-import com.halosolutions.litedb.annotation.LiteColumn;
-import com.halosolutions.litedb.exception.AnnotationNotFound;
-import com.halosolutions.litedb.exception.InvalidAnnotationData;
+import com.luhonghai.litedb.annotation.AnnotationHelper;
+import com.luhonghai.litedb.annotation.LiteColumn;
+import com.luhonghai.litedb.exception.AnnotationNotFound;
+import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+
+import jodd.datetime.JDateTime;
 
 /**
  * Created by luhonghai on 07/09/15.
  */
 public abstract class LiteBaseDao<T> {
 
-    public enum LiteField {
-        INTEGER("INTEGER"),
-        REAL("REAL"),
-        TEXT("TEXT"),
-        BLOB("BLOB");
-
-        private final String name;
-
-        LiteField(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
-    }
+    private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
 
     private final AnnotationHelper annotationHelper;
 
-    private final LiteBaseDatabase databaseHelper;
+    private final LiteDatabaseHelper databaseHelper;
 
     private final Class<T> tableClass;
 
-    public LiteBaseDao(LiteBaseDatabase databaseHelper, Class tableClass) {
+    private final SimpleDateFormat sdfDateValue;
+
+    public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class tableClass) {
         this.annotationHelper = new AnnotationHelper(tableClass);
         this.databaseHelper = databaseHelper;
         this.tableClass = tableClass;
+        sdfDateValue = new SimpleDateFormat(DEFAULT_DATE_FORMAT, Locale.getDefault());
+        sdfDateValue.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
     /**
@@ -88,7 +83,7 @@ public abstract class LiteBaseDao<T> {
      * Get database helper
      * @return database helper
      */
-    public LiteBaseDatabase getDatabaseHelper() {
+    public LiteDatabaseHelper getDatabaseHelper() {
         return databaseHelper;
     }
 
@@ -116,10 +111,12 @@ public abstract class LiteBaseDao<T> {
             throws IllegalAccessException {
         ContentValues contentValues = new ContentValues();
         for (Field field : object.getClass().getDeclaredFields()) {
-            LiteColumn fieldEntityAnnotation = field.getAnnotation(LiteColumn.class);
-            if (fieldEntityAnnotation != null) {
-                if (!fieldEntityAnnotation.isAutoincrement()) {
-                    putContentValues(contentValues, field, object);
+            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
+            if (liteColumn != null) {
+                if (!liteColumn.isAutoincrement()) {
+                    putContentValues(contentValues,
+                            field,
+                            object);
                 }
             }
         }
@@ -138,6 +135,7 @@ public abstract class LiteBaseDao<T> {
         if (!field.isAccessible())
             field.setAccessible(true); // for private variables
         Object fieldValue = field.get(object);
+        if (fieldValue == null) return;
         String key = annotationHelper.getColumnName(field);
         if (fieldValue instanceof Long) {
             contentValues.put(key, Long.valueOf(fieldValue.toString()));
@@ -155,6 +153,19 @@ public abstract class LiteBaseDao<T> {
             contentValues.put(key, Boolean.parseBoolean(fieldValue.toString()));
         } else if (fieldValue instanceof Double) {
             contentValues.put(key, Double.valueOf(fieldValue.toString()));
+        } else if(fieldValue instanceof Date) {
+            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
+            switch (liteColumn.dateColumnType()) {
+                case TEXT:
+                    contentValues.put(key, sdfDateValue.format((Date) fieldValue));
+                    break;
+                case REAL:
+                    contentValues.put(key, new JDateTime(((Date) fieldValue).getTime()).getJulianDateDouble());
+                    break;
+                case INTEGER:
+                    contentValues.put(key, ((Date) fieldValue).getTime());
+                    break;
+            }
         } else if (fieldValue instanceof Byte[] || fieldValue instanceof byte[]) {
             ByteArrayOutputStream outputStream = null;
             ObjectOutputStream objectOutputStream = null;
@@ -191,7 +202,7 @@ public abstract class LiteBaseDao<T> {
      * @throws IllegalAccessException
      */
     public Object getValueFromCursor(Cursor cursor, Field field)
-            throws IllegalAccessException {
+            throws IllegalAccessException, ParseException {
         Class<?> fieldType = field.getType();
         Object value = null;
         int columnIndex = cursor.getColumnIndex(annotationHelper.getColumnName(field));
@@ -222,6 +233,25 @@ public abstract class LiteBaseDao<T> {
                 || fieldType.isAssignableFrom(boolean.class)) {
             int booleanInteger = cursor.getInt(columnIndex);
             value = booleanInteger == 1;
+        } else if (fieldType.isAssignableFrom(Date.class)) {
+            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
+            switch (liteColumn.dateColumnType()) {
+                case TEXT:
+                    String date = cursor.getString(columnIndex);
+                    if (date != null && date.length() > 0)
+                        value = sdfDateValue.parse(date);
+                    break;
+                case REAL:
+                    double jdDate = cursor.getDouble(columnIndex);
+                    if (jdDate != 0.0)
+                        value = new JDateTime(jdDate).convertToDate();
+                    break;
+                case INTEGER:
+                    long unixDate = cursor.getLong(columnIndex);
+                    if (unixDate != 0)
+                        value = new Date(unixDate);
+                    break;
+            }
         }
         return value;
     }
@@ -234,8 +264,26 @@ public abstract class LiteBaseDao<T> {
      * @throws IllegalAccessException
      */
     public void bindObject(final T object, final Cursor cursor)
-            throws NoSuchFieldException, IllegalAccessException {
-        for (Field field : tableClass.getDeclaredFields()) {
+            throws NoSuchFieldException, IllegalAccessException, ParseException {
+        bindObject(tableClass, object, cursor);
+        Class<?> parent = tableClass.getSuperclass();
+        if (parent.isAssignableFrom(LiteEntity.class)) {
+            bindObject(parent, object, cursor);
+        }
+    }
+
+    /**
+     * Parse data from Cursor to object
+     * @param clazz
+     * @param object
+     * @param cursor
+     * @throws NoSuchFieldException
+     * @throws IllegalAccessException
+     * @throws ParseException
+     */
+    public void bindObject(final Class clazz, final T object, final Cursor cursor)
+            throws NoSuchFieldException, IllegalAccessException, ParseException {
+        for (Field field : clazz.getDeclaredFields()) {
             if (!field.isAccessible())
                 field.setAccessible(true); // for private variables
             if (field.getAnnotation(LiteColumn.class) != null) {
@@ -253,7 +301,7 @@ public abstract class LiteBaseDao<T> {
      * @throws InstantiationException
      */
     public List<T> toList(final Cursor cursor)
-            throws IllegalAccessException, NoSuchFieldException, InstantiationException {
+            throws IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
         List<T> list = new ArrayList<T>();
         if (cursor.moveToFirst()) {
             do {
@@ -261,6 +309,7 @@ public abstract class LiteBaseDao<T> {
                 cursor.moveToNext();
             } while (!cursor.isAfterLast());
         }
+        cursor.close();
         return list;
     }
 
@@ -274,7 +323,7 @@ public abstract class LiteBaseDao<T> {
      */
     public T toObject(final Cursor cursor) throws IllegalAccessException,
             InstantiationException,
-            NoSuchFieldException {
+            NoSuchFieldException, ParseException {
         T obj = tableClass.newInstance();
         bindObject(obj, cursor);
         return obj;
@@ -335,11 +384,12 @@ public abstract class LiteBaseDao<T> {
      */
     public long update(T obj) throws IllegalAccessException, AnnotationNotFound, InvalidAnnotationData {
         String primaryColumn = annotationHelper.getColumnName(annotationHelper.getPrimaryField());
+        String primaryValue = annotationHelper.getPrimaryField().get(obj).toString();
         return databaseHelper.getDatabase().update(annotationHelper.getTableName(),
                 fillContentValues(obj),
-                primaryColumn + "=?",
+                "[" + primaryColumn + "] = ?",
                 new String[]{
-                        annotationHelper.getPrimaryField().get(obj).toString()
+                        primaryValue
                 });
     }
 
@@ -361,11 +411,11 @@ public abstract class LiteBaseDao<T> {
         return databaseHelper.getDatabase().query(distinct,
                 annotationHelper.getTableName(),
                 annotationHelper.getColumns(),
-                selection,
+                annotationHelper.exchange(selection),
                 selectionArgs,
-                groupBy,
-                having,
-                orderBy,
+                annotationHelper.exchange(groupBy),
+                annotationHelper.exchange(having),
+                annotationHelper.exchange(orderBy),
                 limit);
     }
 
@@ -382,7 +432,13 @@ public abstract class LiteBaseDao<T> {
      */
     public Cursor query(String selection, String[] selectionArgs, String groupBy,
                         String having, String orderBy, String limit) throws AnnotationNotFound {
-        return query(false, selection, selectionArgs, groupBy, having, orderBy, limit);
+        return query(false,
+                selection,
+                selectionArgs,
+                groupBy,
+                having,
+                orderBy,
+                limit);
     }
 
     /**
@@ -397,6 +453,16 @@ public abstract class LiteBaseDao<T> {
     }
 
     /**
+     * Simple raw query
+     * @param sql
+     * @param args
+     * @return
+     */
+    public Cursor rawQuery(String sql, String[] args) {
+        return getDatabaseHelper().getDatabase().rawQuery(annotationHelper.exchange(sql), args);
+    }
+
+    /**
      *
      * @param key
      * @return
@@ -407,11 +473,15 @@ public abstract class LiteBaseDao<T> {
      * @throws InstantiationException
      */
     public T get(Object key) throws AnnotationNotFound, InvalidAnnotationData,
-            IllegalAccessException, NoSuchFieldException, InstantiationException {
+            IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
         String primaryColumn = annotationHelper.getColumnName(annotationHelper.getPrimaryField());
-        Cursor cursor = query(primaryColumn + "=?", new String[] {key.toString()});
+        Cursor cursor = query("[" + primaryColumn + "] = ?", new String[] {key.toString()});
         if (cursor.moveToFirst()) {
-            return toObject(cursor);
+            try {
+                return toObject(cursor);
+            } finally {
+                cursor.close();
+            }
         }
         return null;
     }
@@ -425,20 +495,36 @@ public abstract class LiteBaseDao<T> {
      * @throws InstantiationException
      */
     public List<T> listAll() throws AnnotationNotFound,
-            IllegalAccessException, NoSuchFieldException, InstantiationException {
+            IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException {
         return toList(query(null, null));
     }
 
     /**
-     * Get count of record
+     * Get count of all record
      * @return
      * @throws AnnotationNotFound
      */
     public int count() throws AnnotationNotFound {
-        Cursor mCount = databaseHelper.getDatabase().rawQuery("select count(*) from " + annotationHelper.getTableName(), null);
-        mCount.moveToFirst();
-        int count= mCount.getInt(0);
-        mCount.close();
+        return count(null, null);
+    }
+
+    /**
+     * Get count of record by selection
+     * @param selection
+     * @param selectionArgs
+     * @return
+     * @throws AnnotationNotFound
+     */
+    public int count(String selection,  String[] selectionArgs) throws AnnotationNotFound {
+        Cursor cursor = databaseHelper.getDatabase().rawQuery(
+                "select count(*) from [" + annotationHelper.getTableName() + "]"
+                        + (selection == null ? "" : (" where " + annotationHelper.exchange(selection))),
+                selectionArgs);
+        cursor.moveToFirst();
+        int count= cursor.getInt(0);
+        cursor.close();
         return count;
     }
+
+
 }

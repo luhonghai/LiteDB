@@ -23,12 +23,13 @@
  *
  *
  */
-package com.halosolutions.litedb.annotation;
+package com.luhonghai.litedb.annotation;
 
-import com.halosolutions.litedb.LiteBaseDao;
-import com.halosolutions.litedb.exception.AnnotationNotFound;
-import com.halosolutions.litedb.exception.InvalidAnnotationData;
-import com.halosolutions.litedb.exception.UnsupportedFieldType;
+import com.luhonghai.litedb.LiteColumnType;
+import com.luhonghai.litedb.LiteEntity;
+import com.luhonghai.litedb.exception.AnnotationNotFound;
+import com.luhonghai.litedb.exception.InvalidAnnotationData;
+import com.luhonghai.litedb.exception.UnsupportedFieldType;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -42,8 +43,12 @@ public class AnnotationHelper {
 
     private final Class clazz;
 
-    public AnnotationHelper(Class clazz) {
-        this.clazz = clazz;
+    public AnnotationHelper(Class tableClazz) {
+        this.clazz = tableClazz;
+    }
+
+    public Class getTableClass() {
+        return clazz;
     }
 
     /**
@@ -88,16 +93,24 @@ public class AnnotationHelper {
      */
     public final String[] getColumns() {
         List<String> columnsList = new ArrayList<String>();
+        findColumns(columnsList, clazz);
+        Class<?> parent = clazz.getSuperclass();
+        if (parent.isAssignableFrom(LiteEntity.class)) {
+            findColumns(columnsList, parent);
+        }
+        String[] columnsArray = new String[columnsList.size()];
+        return columnsList.toArray(columnsArray);
+    }
+
+    private final void findColumns(final List<String> columnsList, Class clazz) {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn fieldEntityAnnotation = field.getAnnotation(LiteColumn.class);
             if (fieldEntityAnnotation != null) {
                 String columnName = getColumnName(field);
-                if (columnName != null)
+                if (columnName != null && !columnsList.contains(columnName))
                     columnsList.add(columnName);
             }
         }
-        String[] columnsArray = new String[columnsList.size()];
-        return columnsList.toArray(columnsArray);
     }
 
     /**
@@ -109,6 +122,17 @@ public class AnnotationHelper {
         StringBuffer sql = new StringBuffer("CREATE TABLE ");
         sql.append(getTableName());
         sql.append(" (");
+        findColumn(sql, clazz);
+        Class<?> parent = clazz.getSuperclass();
+        if (parent.isAssignableFrom(LiteEntity.class)) {
+            findColumn(sql, parent);
+        }
+        String rSql = sql.toString().trim();
+        rSql = rSql.substring(0, rSql.length() - 1); // Remove char ,
+       return rSql + ");";
+    }
+
+    private final void findColumn(final StringBuffer sql, Class clazz) throws UnsupportedFieldType, InvalidAnnotationData {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
             if (liteColumn != null) {
@@ -132,9 +156,6 @@ public class AnnotationHelper {
                 sql.append(", ");
             }
         }
-        String rSql = sql.toString().trim();
-        rSql = rSql.substring(0, rSql.length() - 1); // Remove char ,
-       return rSql + ");";
     }
 
     /**
@@ -207,6 +228,7 @@ public class AnnotationHelper {
      */
     public final String getFieldType(Field field) throws UnsupportedFieldType {
         Class<?> fieldType = field.getType();
+        LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
         if (fieldType.isAssignableFrom(Long.class)
                 || fieldType.isAssignableFrom(long.class)
                 || fieldType.isAssignableFrom(Integer.class)
@@ -217,26 +239,36 @@ public class AnnotationHelper {
                 || fieldType.isAssignableFrom(byte.class)
                 || fieldType.isAssignableFrom(Boolean.class)
                 || fieldType.isAssignableFrom(boolean.class)
+                || (liteColumn.dateColumnType() == LiteColumnType.INTEGER
+                    && fieldType.isAssignableFrom(Date.class))
                 ) {
-            return LiteBaseDao.LiteField.INTEGER.toString();
+            return LiteColumnType.INTEGER.toString();
         } else if (fieldType.isAssignableFrom(String.class)
-                ||fieldType.isAssignableFrom(Date.class)) {
-            return  LiteBaseDao.LiteField.TEXT.toString();
+                ||fieldType.isAssignableFrom(Date.class)
+                || (liteColumn.dateColumnType() == LiteColumnType.TEXT
+                && fieldType.isAssignableFrom(Date.class))) {
+            return  LiteColumnType.TEXT.toString();
         }  else if ((fieldType.isAssignableFrom(Byte[].class)
                 || fieldType.isAssignableFrom(byte[].class))) {
-            return  LiteBaseDao.LiteField.BLOB.toString();
-        } else if ((fieldType.isAssignableFrom(Double.class)
-                || fieldType.isAssignableFrom(double.class))
+            return  LiteColumnType.BLOB.toString();
+        } else if (fieldType.isAssignableFrom(Double.class)
+                || fieldType.isAssignableFrom(double.class)
                 || fieldType.isAssignableFrom(Float.class)
-                || fieldType.isAssignableFrom(float.class)) {
-            return  LiteBaseDao.LiteField.REAL.toString();
+                || fieldType.isAssignableFrom(float.class)
+                || (liteColumn.dateColumnType() == LiteColumnType.REAL
+                && fieldType.isAssignableFrom(Date.class))) {
+            return  LiteColumnType.REAL.toString();
         } else {
             throw new UnsupportedFieldType(clazz, field);
         }
     }
 
     public final Field getPrimaryField() throws InvalidAnnotationData {
-        for (Field field : clazz.getDeclaredFields()) {
+        return getPrimaryField(clazz);
+    }
+
+    public final Field getPrimaryField(Class targetClass) throws InvalidAnnotationData {
+        for (Field field : targetClass.getDeclaredFields()) {
             if (!field.isAccessible())
                 field.setAccessible(true); // for private variables
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
@@ -244,6 +276,28 @@ public class AnnotationHelper {
                 return field;
             }
         }
+        Class<?> parent = targetClass.getSuperclass();
+        if (parent.isAssignableFrom(LiteEntity.class)) {
+            for (Field field : parent.getDeclaredFields()) {
+                if (!field.isAccessible())
+                    field.setAccessible(true); // for private variables
+                LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
+                if (liteColumn != null && liteColumn.isPrimaryKey()) {
+                    return field;
+                }
+            }
+        }
         throw new InvalidAnnotationData("No primary key found for table " + clazz.getName());
+    }
+
+    /**
+     * To exchange raw query to SQLite query.
+     * Raw query include class name and field name of LiteTable
+     * @param sql
+     * @return
+     */
+    public String exchange(String sql) {
+        //TODO Must crazy like Datanucleus
+        return sql;
     }
 }

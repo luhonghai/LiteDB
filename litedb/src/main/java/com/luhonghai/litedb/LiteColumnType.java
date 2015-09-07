@@ -24,14 +24,26 @@
  *
  */
 
-package com.halosolutions.litedb.exception;
+package com.luhonghai.litedb;
 
 /**
- * Created by luhonghai on 07/09/15.
+ * Created by luhonghai on 9/7/15.
  */
-public class AnnotationNotFound extends Exception {
+public enum LiteColumnType {
 
-    public AnnotationNotFound(Class clazz) {
-        super("Require annotation " + clazz.getName());
+    INTEGER("INTEGER"),
+    REAL("REAL"),
+    TEXT("TEXT"),
+    BLOB("BLOB");
+
+    private final String name;
+
+    LiteColumnType(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return name;
     }
 }

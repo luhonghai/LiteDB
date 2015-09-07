@@ -24,23 +24,14 @@
  *
  */
 
-package com.halosolutions.litedb.annotation;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+package com.luhonghai.litedb.exception;
 
 /**
  * Created by luhonghai on 07/09/15.
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface LiteDatabase {
-    /** Database name. */
-    String name() default "";
+public class InvalidAnnotationData extends Exception {
 
-    int version() default 1;
-
-    Class[] tables();
+    public InvalidAnnotationData(String message) {
+        super(message);
+    }
 }
