@@ -40,6 +40,4 @@ public @interface LiteTable {
 
     /** Table name. */
     String name() default "";
-
-    int version() default 1;
 }
