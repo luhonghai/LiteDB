@@ -429,6 +429,43 @@ public class LiteBaseDao<T> {
     }
 
     /**
+     * Use transaction to insert bulk array of object
+     * @param list
+     * @return the list of created object id
+     * @throws AnnotationNotFound
+     * @throws IllegalAccessException
+     */
+    public long[] insert(final List<T> list) throws AnnotationNotFound, IllegalAccessException {
+        return insert(list, true);
+    }
+    /**
+     * Insert bulk array of object
+     * @param list
+     * @param useTransaction
+     * @return the list of created object id
+     * @throws AnnotationNotFound
+     * @throws IllegalAccessException
+     */
+    public long[] insert(final List<T> list, boolean useTransaction) throws AnnotationNotFound, IllegalAccessException {
+        if (useTransaction)
+            databaseHelper.getDatabase().beginTransaction();
+        try {
+            long[] ids = new long[list.size()];
+            for (int i = 0; i < list.size(); i++) {
+                final T obj = list.get(i);
+                ids[i] = insert(obj);
+            }
+            if (useTransaction)
+                databaseHelper.getDatabase().setTransactionSuccessful();
+            return ids;
+        } finally {
+            if (useTransaction && databaseHelper.getDatabase().inTransaction())
+                databaseHelper.getDatabase().endTransaction();
+        }
+    }
+
+
+    /**
      * Update record by primary key
      * @param obj
      * @return the number of rows affected

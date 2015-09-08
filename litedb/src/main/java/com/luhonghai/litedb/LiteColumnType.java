@@ -34,7 +34,8 @@ public enum LiteColumnType {
     INTEGER("INTEGER"),
     REAL("REAL"),
     TEXT("TEXT"),
-    BLOB("BLOB");
+    BLOB("BLOB"),
+    DATE("DATE");
 
     private final String name;
 

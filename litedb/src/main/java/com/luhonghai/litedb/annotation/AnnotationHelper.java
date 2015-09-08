@@ -241,14 +241,9 @@ public class AnnotationHelper {
                 || fieldType.isAssignableFrom(byte.class)
                 || fieldType.isAssignableFrom(Boolean.class)
                 || fieldType.isAssignableFrom(boolean.class)
-                || (liteColumn.dateColumnType() == LiteColumnType.INTEGER
-                    && fieldType.isAssignableFrom(Date.class))
                 ) {
             return LiteColumnType.INTEGER.toString();
-        } else if (fieldType.isAssignableFrom(String.class)
-                ||fieldType.isAssignableFrom(Date.class)
-                || (liteColumn.dateColumnType() == LiteColumnType.TEXT
-                && fieldType.isAssignableFrom(Date.class))) {
+        } else if (fieldType.isAssignableFrom(String.class)) {
             return  LiteColumnType.TEXT.toString();
         }  else if (fieldType.isAssignableFrom(Byte[].class)
                 || fieldType.isAssignableFrom(byte[].class)
@@ -259,9 +254,13 @@ public class AnnotationHelper {
                 || fieldType.isAssignableFrom(double.class)
                 || fieldType.isAssignableFrom(Float.class)
                 || fieldType.isAssignableFrom(float.class)
-                || (liteColumn.dateColumnType() == LiteColumnType.REAL
-                && fieldType.isAssignableFrom(Date.class))) {
-            return  LiteColumnType.REAL.toString();
+                ) {
+            return LiteColumnType.REAL.toString();
+        } else if (fieldType.isAssignableFrom(Date.class)
+                && (liteColumn.dateColumnType() == LiteColumnType.INTEGER
+                    || liteColumn.dateColumnType() == LiteColumnType.REAL
+                    || liteColumn.dateColumnType() == LiteColumnType.TEXT)) {
+            return LiteColumnType.DATE.toString();
         } else {
             throw new UnsupportedFieldType(clazz, field);
         }
