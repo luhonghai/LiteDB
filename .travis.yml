@@ -1,3 +1,6 @@
+branches:
+  only:
+    - master
 language: android
 jdk: oraclejdk7
 cache:
