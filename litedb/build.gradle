@@ -7,7 +7,7 @@ apply plugin: 'com.github.dcendents.android-maven'
 apply plugin: 'com.jfrog.bintray'
 
 // This is the library version used when deploying the artifact
-version = "1.0.6"
+version = "1.0.3"
 
 android {
     compileSdkVersion 22
@@ -33,11 +33,12 @@ install {
         // This generates POM.xml with proper parameters
         pom {
             project {
-                name 'LiteDB'
                 packaging 'jar'
-                description 'Quick and easy to create SQLite database on Android project with Annotation'
+
+                // Add your description here
+                name 'Quick and easy to create SQLite database on Android project with Annotation'
                 url siteUrl
-                version version
+
                 // Set your license
                 licenses {
                     license {
@@ -56,6 +57,7 @@ install {
                     connection gitUrl
                     developerConnection gitUrl
                     url siteUrl
+
                 }
             }
         }
@@ -99,7 +101,6 @@ if (proFile.exists()) {
         pkg {
             repo = "maven"
             name = "LiteDB"
-            description "Quick and easy to create SQLite database on Android project with Annotation"
             websiteUrl = siteUrl
             vcsUrl = gitUrl
             licenses = ["MIT"]
