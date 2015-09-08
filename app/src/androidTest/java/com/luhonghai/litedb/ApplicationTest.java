@@ -37,6 +37,7 @@ import com.luhonghai.litedb.example.entity.BlobData;
 import com.luhonghai.litedb.example.entity.Contact;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
+import com.luhonghai.litedb.exception.LiteDatabaseException;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -59,11 +60,9 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
      * Just a very simple test
      * @throws AnnotationNotFound
      * @throws InvalidAnnotationData
-     * @throws IllegalAccessException
-     * @throws NoSuchFieldException
-     * @throws InstantiationException
+     * @throws LiteDatabaseException
      */
-    public void testLiteDatabase() throws AnnotationNotFound, InvalidAnnotationData, IllegalAccessException, NoSuchFieldException, InstantiationException, ParseException, IOException, ClassNotFoundException {
+    public void testLiteDatabase() throws LiteDatabaseException, AnnotationNotFound, InvalidAnnotationData {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:ss:mm.SSS", Locale.getDefault());
         MainDatabaseHelper databaseHelper = new MainDatabaseHelper(getContext(), new LiteDatabaseHelper.DatabaseListener() {
             @Override
