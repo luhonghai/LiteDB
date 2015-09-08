@@ -32,6 +32,7 @@ import android.util.Log;
 
 import com.luhonghai.litedb.annotation.AnnotationHelper;
 import com.luhonghai.litedb.annotation.LiteColumn;
+import com.luhonghai.litedb.annotation.LiteTable;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
@@ -319,7 +320,7 @@ public class LiteBaseDao<T> {
             throws NoSuchFieldException, IllegalAccessException, ParseException, IOException, ClassNotFoundException {
         bindObject(tableClass, object, cursor);
         Class<?> parent = tableClass.getSuperclass();
-        if (parent.isAssignableFrom(LiteEntity.class)) {
+        if (parent.isAssignableFrom(tableClass.getAnnotation(LiteTable.class).allowedParent())) {
             bindObject(parent, object, cursor);
         }
     }
