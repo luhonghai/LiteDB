@@ -26,6 +26,8 @@
 
 package com.luhonghai.litedb.annotation;
 
+import com.luhonghai.litedb.LiteEntity;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -40,4 +42,10 @@ public @interface LiteTable {
 
     /** Table name. */
     String name() default "";
+
+    /**
+     * Define the parent class that can be extended by this class
+     * To search annotation and field
+     */
+    Class allowedParent() default LiteEntity.class;
 }

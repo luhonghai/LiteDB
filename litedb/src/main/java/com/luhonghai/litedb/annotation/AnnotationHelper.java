@@ -26,7 +26,6 @@
 package com.luhonghai.litedb.annotation;
 
 import com.luhonghai.litedb.LiteColumnType;
-import com.luhonghai.litedb.LiteEntity;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 import com.luhonghai.litedb.exception.UnsupportedFieldType;
@@ -43,7 +42,7 @@ import java.util.List;
  */
 public class AnnotationHelper {
 
-    private final Class clazz;
+    private final Class<?> clazz;
 
     public AnnotationHelper(Class tableClazz) {
         this.clazz = tableClazz;
@@ -97,14 +96,14 @@ public class AnnotationHelper {
         List<String> columnsList = new ArrayList<String>();
         findColumns(columnsList, clazz);
         Class<?> parent = clazz.getSuperclass();
-        if (parent.isAssignableFrom(LiteEntity.class)) {
+        if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
             findColumns(columnsList, parent);
         }
         String[] columnsArray = new String[columnsList.size()];
         return columnsList.toArray(columnsArray);
     }
 
-    private final void findColumns(final List<String> columnsList, Class clazz) {
+    private void findColumns(final List<String> columnsList, Class clazz) {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn fieldEntityAnnotation = field.getAnnotation(LiteColumn.class);
             if (fieldEntityAnnotation != null) {
@@ -126,7 +125,7 @@ public class AnnotationHelper {
         sql.append(" (");
         findColumn(sql, clazz);
         Class<?> parent = clazz.getSuperclass();
-        if (parent.isAssignableFrom(LiteEntity.class)) {
+        if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
             findColumn(sql, parent);
         }
         String rSql = sql.toString().trim();
@@ -134,7 +133,7 @@ public class AnnotationHelper {
        return rSql + ");";
     }
 
-    private final void findColumn(final StringBuffer sql, Class clazz) throws UnsupportedFieldType, InvalidAnnotationData {
+    private void findColumn(final StringBuffer sql, Class clazz) throws UnsupportedFieldType, InvalidAnnotationData {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
             if (liteColumn != null) {
@@ -270,7 +269,7 @@ public class AnnotationHelper {
         return getPrimaryField(clazz);
     }
 
-    public final Field getPrimaryField(Class targetClass) throws InvalidAnnotationData {
+    public final Field getPrimaryField(Class<?> targetClass) throws InvalidAnnotationData {
         for (Field field : targetClass.getDeclaredFields()) {
             if (!field.isAccessible())
                 field.setAccessible(true); // for private variables
@@ -280,7 +279,7 @@ public class AnnotationHelper {
             }
         }
         Class<?> parent = targetClass.getSuperclass();
-        if (parent.isAssignableFrom(LiteEntity.class)) {
+        if (parent.isAssignableFrom(targetClass.getAnnotation(LiteTable.class).allowedParent())) {
             for (Field field : parent.getDeclaredFields()) {
                 if (!field.isAccessible())
                     field.setAccessible(true); // for private variables
