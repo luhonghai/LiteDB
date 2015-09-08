@@ -113,7 +113,7 @@ public class LiteQuery {
      */
     public String exchange(String sql, String key, String value) {
         while (sql.contains("["  + key + "]")) {
-            sql = sql.replace("[" + key + "]", value);
+            sql = sql.replace("[" + key + "]", "[" + value + "]");
         }
         return sql;
     }
