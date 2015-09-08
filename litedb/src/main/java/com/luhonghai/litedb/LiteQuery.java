@@ -27,6 +27,8 @@
 package com.luhonghai.litedb;
 
 import com.luhonghai.litedb.annotation.AnnotationHelper;
+import com.luhonghai.litedb.annotation.LiteColumn;
+import com.luhonghai.litedb.annotation.LiteTable;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
@@ -55,13 +57,23 @@ public class LiteQuery {
     private void init() throws AnnotationNotFound {
         synchronized (data) {
             if (data.size() == 0) {
-                for (Class clazz : tableClasses) {
+                for (Class<?> clazz : tableClasses) {
                     AnnotationHelper annotationHelper = new AnnotationHelper(clazz);
                     if (!data.containsKey(clazz.getName())) {
                         Map<String, String> items = new ConcurrentHashMap<String, String>();
                         items.put(clazz.getName(), annotationHelper.getTableName());
                         for (Field field : clazz.getDeclaredFields()) {
-                            items.put(field.getName(), annotationHelper.getColumnName(field));
+                            if (field.getAnnotation(LiteColumn.class) != null
+                                    && !items.containsKey(field.getName()))
+                                items.put(field.getName(), annotationHelper.getColumnName(field));
+                        }
+                        Class<?> parent = clazz.getSuperclass();
+                        if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
+                            for (Field field : parent.getDeclaredFields()) {
+                                if (field.getAnnotation(LiteColumn.class) != null
+                                        && !items.containsKey(field.getName()))
+                                    items.put(field.getName(), annotationHelper.getColumnName(field));
+                            }
                         }
                         data.put(clazz.getName(), items);
                     }
