@@ -43,7 +43,7 @@ install {
                 licenses {
                     license {
                         name 'The MIT License (MIT)'
-                        url 'http://luhonghai.com/LiteDB/LICENSE'
+                        url 'https://opensource.org/licenses/MIT'
                     }
                 }
                 developers {
@@ -89,20 +89,22 @@ artifacts {
     archives sourcesJar
 }
 // Bintray deployment
-Properties properties = new Properties()
-properties.load(project.rootProject.file('local.properties').newDataInputStream())
+def proFile = project.rootProject.file('local.properties');
+if (proFile.exists()) {
+    Properties properties = new Properties()
+    properties.load(proFile.newDataInputStream())
+    bintray {
+        user = properties.getProperty("bintray.user")
+        key = properties.getProperty("bintray.apikey")
 
-bintray {
-    user = properties.getProperty("bintray.user")
-    key = properties.getProperty("bintray.apikey")
-
-    configurations = ['archives']
-    pkg {
-        repo = "maven"
-        name = "LiteDB"
-        websiteUrl = siteUrl
-        vcsUrl = gitUrl
-        licenses = ["The MIT License (MIT)"]
-        publish = true
+        configurations = ['archives']
+        pkg {
+            repo = "maven"
+            name = "LiteDB"
+            websiteUrl = siteUrl
+            vcsUrl = gitUrl
+            licenses = ["The MIT License (MIT)"]
+            publish = true
+        }
     }
 }
