@@ -3,21 +3,63 @@
  */
 
 apply plugin: 'com.android.library'
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
+// This is the library version used when deploying the artifact
+version = "1.0.0-SNAPSHOT"
 
 android {
     compileSdkVersion 22
     buildToolsVersion "22.0.1"
+    resourcePrefix "litedb__"
 
     defaultConfig {
         minSdkVersion 4
         targetSdkVersion 22
         versionCode 1
-        versionName "1.0.0"
+        versionName version
     }
     buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+    }
+}
+
+def siteUrl = 'http://luhonghai.com/LiteDB'
+def gitUrl = 'https://github.com/luhonghai/LiteDB.git'
+group = "com.luhonghai"
+
+install {
+    repositories.mavenInstaller {
+        // This generates POM.xml with proper parameters
+        pom {
+            project {
+                packaging 'jar'
+
+                // Add your description here
+                name 'Quick and easy to create SQLite database on Android project with Annotation'
+                url siteUrl
+
+                // Set your license
+                licenses {
+                    license {
+                        name 'The MIT License (MIT)'
+                        url 'http://luhonghai.com/LiteDB/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id 'luhonghai'
+                        name 'Hai Lu'
+                        email 'luhonghai@gmail.com'
+                    }
+                }
+                scm {
+                    connection gitUrl
+                    developerConnection gitUrl
+                    url siteUrl
+
+                }
+            }
         }
     }
 }
@@ -26,4 +68,41 @@ dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'org.jodd:jodd-core:3.6.6'
     testCompile 'junit:junit:4.12'
+}
+
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+task javadoc(type: Javadoc) {
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+artifacts {
+    archives javadocJar
+    archives sourcesJar
+}
+// Bintray deployment
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+bintray {
+    user = properties.getProperty("bintray.user")
+    key = properties.getProperty("bintray.apikey")
+
+    configurations = ['archives']
+    pkg {
+        repo = "maven"
+        name = "LiteDB"
+        websiteUrl = siteUrl
+        vcsUrl = gitUrl
+        licenses = ["The MIT License (MIT)"]
+        publish = true
+    }
 }

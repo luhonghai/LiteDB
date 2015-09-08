@@ -138,7 +138,7 @@ public class AnnotationHelper {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
             if (liteColumn != null) {
-                String fieldType = getFieldType(field);
+                String fieldType = getColumnType(field);
                 sql.append("[").append(getColumnName(field)).append("]");
                 sql.append(" ");
                 sql.append(fieldType);
@@ -177,7 +177,7 @@ public class AnnotationHelper {
     /**
      * Check if field is number
      * @param field
-     * @return
+     * @return true if field type is number
      */
     public boolean isNumberField(Field field) {
         Class<?> fType = field.getType();
@@ -208,7 +208,7 @@ public class AnnotationHelper {
         sql.append("[").append(getTableName()).append("]");
         sql.append(" ADD COLUMN ");
         sql.append("[").append(getColumnName(field)).append("]");
-        sql.append(" ").append(getFieldType(field));
+        sql.append(" ").append(getColumnType(field));
         if (liteColumn.isAutoincrement()) {
             verifyAutoincrement(field);
             sql.append(" ").append("AUTOINCREMENT");
@@ -226,9 +226,9 @@ public class AnnotationHelper {
      * Get SQLite type
      * INTEGER, TEXT
      * @param field
-     * @return
+     * @return SQLite column type that is matched with field type
      */
-    public final String getFieldType(Field field) throws UnsupportedFieldType {
+    public final String getColumnType(Field field) throws UnsupportedFieldType {
         Class<?> fieldType = field.getType();
         LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
         if (fieldType.isAssignableFrom(Long.class)

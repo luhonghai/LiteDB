@@ -73,7 +73,7 @@ public class LiteQuery {
      * To exchange raw query to SQLite query.
      * Raw query include class name and field name of LiteTable
      * @param sql
-     * @return
+     * @return the sql is exchanged to SQLite query
      */
     public String exchange(String sql) throws AnnotationNotFound {
         if (sql == null || sql.length() == 0) return sql;
@@ -88,7 +88,7 @@ public class LiteQuery {
      * Raw query include class name and field name of LiteTable
      * @param sql
      * @param clazz
-     * @return
+     * @return the sql is exchanged by annotation data
      */
     public String exchange(Class clazz, String sql) throws AnnotationNotFound {
         //TODO Must crazy like Datanucleus
@@ -109,7 +109,7 @@ public class LiteQuery {
      * @param sql
      * @param key
      * @param value
-     * @return
+     * @return the sql is exchanged by key and value
      */
     public String exchange(String sql, String key, String value) {
         while (sql.contains("["  + key + "]")) {

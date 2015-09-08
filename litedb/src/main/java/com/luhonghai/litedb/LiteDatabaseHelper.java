@@ -193,7 +193,7 @@ public abstract class LiteDatabaseHelper {
          * * Check if table is exists on database
          * @param db
          * @param table
-         * @return
+         * @return true if table is exist
          */
         private boolean isTableExists(final SQLiteDatabase db, final String table) {
             Cursor cursor = db.rawQuery(
@@ -214,7 +214,7 @@ public abstract class LiteDatabaseHelper {
          * @param db
          * @param table
          * @param column
-         * @return
+         * @return true if column is exist
          */
         private boolean isColumnExists(final SQLiteDatabase db, final String table, final String column) {
             Cursor mCursor = null;
@@ -264,6 +264,10 @@ public abstract class LiteDatabaseHelper {
      *
      * @param context
      *            the Context within which to work
+     * @param databaseListener
+     *              the listener for database change
+     * @throws AnnotationNotFound
+     * @throws InvalidAnnotationData
      */
     public LiteDatabaseHelper(final Context context, DatabaseListener databaseListener)
             throws AnnotationNotFound, InvalidAnnotationData {
@@ -273,6 +277,7 @@ public abstract class LiteDatabaseHelper {
 
     /**
      * Get context.
+     * @return current context
      */
     public final Context getContext() {
         return mContext;
@@ -280,14 +285,15 @@ public abstract class LiteDatabaseHelper {
 
     /**
      * Getter of lite query object
-     * @return
+     * @return lite query object
      */
     public LiteQuery getLiteQuery() {
         return liteQuery;
     }
 
     /**
-     * Get database connection.
+     *  Get database connection.
+     * @return SQLite database object
      */
     public final SQLiteDatabase getDatabase() {
         return mDB;
@@ -331,8 +337,8 @@ public abstract class LiteDatabaseHelper {
 
     /**
      * Check if table is exists
-     * @param table
-     * @return
+     * @param table name of table to check (SQLite table name)
+     * @return true if table is exist
      */
     public boolean isTableExists(String table) {
         return mOpenHelper.isTableExists(mDB, table);
@@ -340,9 +346,9 @@ public abstract class LiteDatabaseHelper {
 
     /**
      * Check if column of table is exists
-     * @param table
-     * @param column
-     * @return
+     * @param table name of table to check (SQLite table name)
+     * @param column column to check (SQLite column name)
+     * @return true if column is exist if table
      */
     public boolean isColumnExists(String table, String column) {
         return mOpenHelper.isColumnExists(mDB, table, column);

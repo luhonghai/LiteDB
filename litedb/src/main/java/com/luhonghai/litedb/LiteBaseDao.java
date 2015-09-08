@@ -59,17 +59,34 @@ import jodd.datetime.JDateTime;
  * Created by luhonghai on 07/09/15.
  */
 public class LiteBaseDao<T> {
-
+    /**
+     *
+     */
     private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
-
+    /**
+     *
+     */
     private final AnnotationHelper annotationHelper;
-
+    /**
+     *
+     */
     private final LiteDatabaseHelper databaseHelper;
-
+    /**
+     *
+     */
     private final Class<T> tableClass;
-
+    /**
+     *
+     */
     private final SimpleDateFormat sdfDateValue;
 
+    /**
+     * Constructor
+     * @param databaseHelper
+     * @param tableClass
+     * @throws InvalidAnnotationData
+     * @throws AnnotationNotFound
+     */
     public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class<T> tableClass)
             throws InvalidAnnotationData, AnnotationNotFound {
         this.annotationHelper = new AnnotationHelper(tableClass);
@@ -112,7 +129,7 @@ public class LiteBaseDao<T> {
     /**
      * Fill content values by object
      * @param object
-     * @return
+     * @return content values with full data from object
      * @throws IllegalAccessException
      */
     public ContentValues fillContentValues(final T object)
@@ -208,7 +225,7 @@ public class LiteBaseDao<T> {
      * Get content from specific types
      * @param cursor
      * @param field
-     * @return
+     * @return value by special field from cursor
      * @throws IllegalAccessException
      */
     public Object getValueFromCursor(Cursor cursor, Field field)
@@ -330,7 +347,7 @@ public class LiteBaseDao<T> {
     /**
      *
      * @param cursor
-     * @return
+     * @return array of object with full data from cursor
      * @throws IllegalAccessException
      * @throws NoSuchFieldException
      * @throws InstantiationException
@@ -352,7 +369,7 @@ public class LiteBaseDao<T> {
     /**
      *
      * @param cursor
-     * @return
+     * @return Object with full data from cursor
      * @throws IllegalAccessException
      * @throws InstantiationException
      * @throws NoSuchFieldException
@@ -438,7 +455,7 @@ public class LiteBaseDao<T> {
      * @param having
      * @param orderBy
      * @param limit
-     * @return
+     * @return database cursor
      * @throws AnnotationNotFound
      */
     public Cursor query(boolean distinct,
@@ -463,7 +480,7 @@ public class LiteBaseDao<T> {
      * @param having
      * @param orderBy
      * @param limit
-     * @return
+     * @return database cursor
      * @throws AnnotationNotFound
      */
     public Cursor query(String selection, String[] selectionArgs, String groupBy,
@@ -481,7 +498,7 @@ public class LiteBaseDao<T> {
      *
      * @param selection
      * @param selectionArgs
-     * @return
+     * @return database cursor by selection
      * @throws AnnotationNotFound
      */
     public Cursor query(String selection, String[] selectionArgs) throws AnnotationNotFound {
@@ -492,7 +509,7 @@ public class LiteBaseDao<T> {
      * Simple raw query
      * @param sql
      * @param args
-     * @return
+     * @return raw database cursor
      */
     public Cursor rawQuery(String sql, String[] args) throws AnnotationNotFound {
         return getDatabaseHelper().getDatabase().rawQuery(databaseHelper.getLiteQuery().exchange(sql), args);
@@ -501,7 +518,7 @@ public class LiteBaseDao<T> {
     /**
      * Get object by key
      * @param key
-     * @return
+     * @return object contains this primary key value
      * @throws AnnotationNotFound
      * @throws InvalidAnnotationData
      * @throws IllegalAccessException
@@ -524,7 +541,7 @@ public class LiteBaseDao<T> {
 
     /**
      * List all records from table
-     * @return
+     * @return array of all object on this table
      * @throws AnnotationNotFound
      * @throws IllegalAccessException
      * @throws NoSuchFieldException
@@ -537,7 +554,7 @@ public class LiteBaseDao<T> {
 
     /**
      * Get count of all record
-     * @return
+     * @return number of all records
      * @throws AnnotationNotFound
      */
     public int count() throws AnnotationNotFound {
@@ -548,7 +565,7 @@ public class LiteBaseDao<T> {
      * Get count of record by selection
      * @param selection
      * @param selectionArgs
-     * @return
+     * @return number of records by selection
      * @throws AnnotationNotFound
      */
     public int count(String selection,  String[] selectionArgs) throws AnnotationNotFound {
