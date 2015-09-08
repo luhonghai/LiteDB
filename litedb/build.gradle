@@ -7,7 +7,7 @@ apply plugin: 'com.github.dcendents.android-maven'
 apply plugin: 'com.jfrog.bintray'
 
 // This is the library version used when deploying the artifact
-version = "1.0.0-SNAPSHOT"
+version = "1.0.1"
 
 android {
     compileSdkVersion 22
@@ -17,7 +17,7 @@ android {
     defaultConfig {
         minSdkVersion 4
         targetSdkVersion 22
-        versionCode 1
+        versionCode 2
         versionName version
     }
     buildTypes {
@@ -89,7 +89,7 @@ artifacts {
     archives sourcesJar
 }
 // Bintray deployment
-def proFile = project.rootProject.file('local.properties');
+def proFile = project.rootProject.file('bintray.properties');
 if (proFile.exists()) {
     Properties properties = new Properties()
     properties.load(proFile.newDataInputStream())
@@ -103,7 +103,7 @@ if (proFile.exists()) {
             name = "LiteDB"
             websiteUrl = siteUrl
             vcsUrl = gitUrl
-            licenses = ["The MIT License (MIT)"]
+            licenses = ["MIT"]
             publish = true
         }
     }
