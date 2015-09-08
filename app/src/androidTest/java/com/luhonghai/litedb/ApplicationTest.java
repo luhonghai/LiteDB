@@ -77,12 +77,12 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
             }
 
             @Override
-            public void onBeforeDatabaseUpgrade(SQLiteDatabase db) {
+            public void onBeforeDatabaseUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
             }
 
             @Override
-            public void onAfterDatabaseUpgrade(SQLiteDatabase db) {
+            public void onAfterDatabaseUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
             }
 
@@ -106,16 +106,16 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
         // Try to insert new record
         long id = contactDao.insert(contact);
         // Try to get count
-        assertEquals(1, contactDao.count("name = ?", new String[]{"1st Name"}));
+        assertEquals(1, contactDao.count("[name] = ?", new String[]{"1st Name"}));
         // Try to get record by id
         Contact refContact = contactDao.get(id);
         assertEquals(refContact.getName(), contact.getName());
         assertEquals(refContact.getCreatedDate3(), null);
-        // 2 millisecond difference is okay
+        // less than 2 millisecond difference is okay
         assertTrue(Math.abs(contact.getCreatedDate().getTime() - refContact.getCreatedDate().getTime()) <= 2);
-        // 2 millisecond difference is okay
+        // less than 2 millisecond difference is okay
         assertTrue(Math.abs(contact.getCreatedDate().getTime() - refContact.getCreatedDate1().getTime()) <= 2);
-        // 2 millisecond difference is okay
+        // less than 2 millisecond difference is okay
         assertTrue(Math.abs(contact.getCreatedDate().getTime() - refContact.getCreatedDate2().getTime()) <= 2);
         refContact.setName("2nd Name");
         refContact.setJob("Job");

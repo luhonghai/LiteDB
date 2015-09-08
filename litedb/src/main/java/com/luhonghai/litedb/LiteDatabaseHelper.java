@@ -63,13 +63,21 @@ public abstract class LiteDatabaseHelper {
          *  Before verify all tables when database upgrade
          * @param db
          */
-        void onBeforeDatabaseUpgrade(SQLiteDatabase db);
+        void onBeforeDatabaseUpgrade(final SQLiteDatabase db, final int oldVersion,
+                                     final int newVersion);
         /**
          *  After verify all tables when database upgrade
          * @param db
          */
-        void onAfterDatabaseUpgrade(SQLiteDatabase db);
+        void onAfterDatabaseUpgrade(final SQLiteDatabase db, final int oldVersion,
+                                    final int newVersion);
 
+        /**
+         * Catch exception from verify database method
+         * @param db
+         * @param message
+         * @param throwable
+         */
         void onError(SQLiteDatabase db, String message, Throwable throwable);
     }
 
@@ -83,7 +91,10 @@ public abstract class LiteDatabaseHelper {
 
     /** The context within which to work. */
     private final Context mContext;
-
+    /**
+     * The exchange query object
+     */
+    private final LiteQuery liteQuery;
     /**
      * A helper class is used to manage database.
      */
@@ -135,21 +146,29 @@ public abstract class LiteDatabaseHelper {
         @Override
         public void onUpgrade(final SQLiteDatabase db, final int oldVersion,
                               final int newVersion) {
-            if (databaseListener != null) databaseListener.onBeforeDatabaseUpgrade(db);
+            if (databaseListener != null) databaseListener.onBeforeDatabaseUpgrade(db, oldVersion, newVersion);
             verifyDatabase(db);
-            if (databaseListener != null) databaseListener.onAfterDatabaseUpgrade(db);
+            if (databaseListener != null) databaseListener.onAfterDatabaseUpgrade(db, oldVersion, newVersion);
         }
 
+        /**
+         * To verify all tables of database
+         * Create new table or new column if needed
+         * @param db
+         */
         private void verifyDatabase(final SQLiteDatabase db) {
+            // Loop all table classes that is defined on LiteDatabase annotation
             for (Class clazz : tableClasses) {
                 try {
                     AnnotationHelper annotationHelper = new AnnotationHelper(clazz);
                     String tableName = annotationHelper.getTableName();
                     if (isTableExists(db, tableName)) {
+                        // Table is exists. Check all fields to add column if needed
                         for (Field field : clazz.getDeclaredFields()) {
                             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
                             if (liteColumn != null) {
                                 if (!isColumnExists(db, tableName, annotationHelper.getColumnName(field))) {
+                                    // Column is not exists. Try to add new
                                     String query = annotationHelper.getAddColumnQuery(field);
                                     Log.d(TAG, "Add new column. Query: " + query);
                                     db.execSQL(query);
@@ -178,14 +197,14 @@ public abstract class LiteDatabaseHelper {
          */
         private boolean isTableExists(final SQLiteDatabase db, final String table) {
             Cursor cursor = db.rawQuery(
-                    "select DISTINCT tbl_name from sqlite_master where tbl_name = '"
-                    + table + "'", null);
+                    "select DISTINCT [tbl_name] from [sqlite_master] where [tbl_name] = ?",
+                    new String[] {table});
             if (cursor != null) {
-                if (cursor.getCount()>0) {
+                try {
+                    return cursor.getCount() > 0;
+                } finally {
                     cursor.close();
-                    return true;
                 }
-                cursor.close();
             }
             return false;
         }
@@ -237,6 +256,7 @@ public abstract class LiteDatabaseHelper {
                 dbName,
                 liteDatabase.version(),
                 tableClasses);
+        liteQuery = new LiteQuery(tableClasses);
     }
 
     /**
@@ -256,6 +276,14 @@ public abstract class LiteDatabaseHelper {
      */
     public final Context getContext() {
         return mContext;
+    }
+
+    /**
+     * Getter of lite query object
+     * @return
+     */
+    public LiteQuery getLiteQuery() {
+        return liteQuery;
     }
 
     /**

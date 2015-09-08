@@ -60,7 +60,11 @@ public @interface  LiteColumn {
 
     /**
      * Simple default values
-     * As SQL value
+     * Input value must be valid SQLite value type
+     * For example:
+     * Long column -> 1
+     * String column -> 'String value'
+     * Boolean column -> 1 or 0
      */
     String defaultValue() default "";
 

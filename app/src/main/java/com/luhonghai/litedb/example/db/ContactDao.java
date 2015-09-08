@@ -29,6 +29,8 @@ package com.luhonghai.litedb.example.db;
 import com.luhonghai.litedb.LiteBaseDao;
 import com.luhonghai.litedb.LiteDatabaseHelper;
 import com.luhonghai.litedb.example.entity.Contact;
+import com.luhonghai.litedb.exception.AnnotationNotFound;
+import com.luhonghai.litedb.exception.InvalidAnnotationData;
 
 /**
  * Created by luhonghai on 9/7/15.
@@ -37,7 +39,7 @@ import com.luhonghai.litedb.example.entity.Contact;
  */
 public class ContactDao extends LiteBaseDao<Contact> {
 
-    public ContactDao(LiteDatabaseHelper databaseHelper) {
+    public ContactDao(LiteDatabaseHelper databaseHelper) throws InvalidAnnotationData, AnnotationNotFound {
         super(databaseHelper, Contact.class);
     }
 }

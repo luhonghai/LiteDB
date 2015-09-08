@@ -39,7 +39,7 @@ import java.util.Date;
 @LiteTable
 public class Contact extends LiteEntity {
 
-    @LiteColumn(name = "name", isNotNull = true)
+    @LiteColumn(name = "contact_name", isNotNull = true)
     private String name;
 
     @LiteColumn(defaultValue = "'VN84000000000'")

@@ -293,15 +293,4 @@ public class AnnotationHelper {
         }
         throw new InvalidAnnotationData("No primary key found for table " + clazz.getName());
     }
-
-    /**
-     * To exchange raw query to SQLite query.
-     * Raw query include class name and field name of LiteTable
-     * @param sql
-     * @return
-     */
-    public String exchange(String sql) {
-        //TODO Must crazy like Datanucleus
-        return sql;
-    }
 }

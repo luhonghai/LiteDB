@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/LiteDB.iml" filepath="$PROJECT_DIR$/LiteDB.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Litedb.iml" filepath="$PROJECT_DIR$/Litedb.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
       <module fileurl="file://$PROJECT_DIR$/litedb/litedb.iml" filepath="$PROJECT_DIR$/litedb/litedb.iml" />
     </modules>

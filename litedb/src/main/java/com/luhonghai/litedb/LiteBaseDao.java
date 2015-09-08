@@ -70,12 +70,13 @@ public class LiteBaseDao<T> {
 
     private final SimpleDateFormat sdfDateValue;
 
-    public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class<T> tableClass) {
+    public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class<T> tableClass)
+            throws InvalidAnnotationData, AnnotationNotFound {
         this.annotationHelper = new AnnotationHelper(tableClass);
         this.databaseHelper = databaseHelper;
         this.tableClass = tableClass;
-        sdfDateValue = new SimpleDateFormat(DEFAULT_DATE_FORMAT, Locale.getDefault());
-        sdfDateValue.setTimeZone(TimeZone.getTimeZone("UTC"));
+        this.sdfDateValue = new SimpleDateFormat(DEFAULT_DATE_FORMAT, Locale.getDefault());
+        this.sdfDateValue.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
     /**
@@ -215,6 +216,7 @@ public class LiteBaseDao<T> {
         Class<?> fieldType = field.getType();
         Object value = null;
         int columnIndex = cursor.getColumnIndex(annotationHelper.getColumnName(field));
+        if (columnIndex == -1) return null;
         if (fieldType.isAssignableFrom(Long.class)
                 || fieldType.isAssignableFrom(long.class)) {
             value = cursor.getLong(columnIndex);
@@ -252,12 +254,12 @@ public class LiteBaseDao<T> {
                     break;
                 case REAL:
                     double jdDate = cursor.getDouble(columnIndex);
-                    if (jdDate != 0.0)
+                    if (jdDate != 0.0d)
                         value = new JDateTime(jdDate).convertToDate();
                     break;
                 case INTEGER:
                     long unixDate = cursor.getLong(columnIndex);
-                    if (unixDate != 0)
+                    if (unixDate != 0l)
                         value = new Date(unixDate);
                     break;
             }
@@ -445,11 +447,11 @@ public class LiteBaseDao<T> {
         return databaseHelper.getDatabase().query(distinct,
                 annotationHelper.getTableName(),
                 annotationHelper.getColumns(),
-                annotationHelper.exchange(selection),
+                databaseHelper.getLiteQuery().exchange(tableClass,selection),
                 selectionArgs,
-                annotationHelper.exchange(groupBy),
-                annotationHelper.exchange(having),
-                annotationHelper.exchange(orderBy),
+                databaseHelper.getLiteQuery().exchange(tableClass,groupBy),
+                databaseHelper.getLiteQuery().exchange(tableClass,having),
+                databaseHelper.getLiteQuery().exchange(tableClass,orderBy),
                 limit);
     }
 
@@ -492,12 +494,12 @@ public class LiteBaseDao<T> {
      * @param args
      * @return
      */
-    public Cursor rawQuery(String sql, String[] args) {
-        return getDatabaseHelper().getDatabase().rawQuery(annotationHelper.exchange(sql), args);
+    public Cursor rawQuery(String sql, String[] args) throws AnnotationNotFound {
+        return getDatabaseHelper().getDatabase().rawQuery(databaseHelper.getLiteQuery().exchange(sql), args);
     }
 
     /**
-     *
+     * Get object by key
      * @param key
      * @return
      * @throws AnnotationNotFound
@@ -521,7 +523,7 @@ public class LiteBaseDao<T> {
     }
 
     /**
-     *
+     * List all records from table
      * @return
      * @throws AnnotationNotFound
      * @throws IllegalAccessException
@@ -552,7 +554,7 @@ public class LiteBaseDao<T> {
     public int count(String selection,  String[] selectionArgs) throws AnnotationNotFound {
         Cursor cursor = databaseHelper.getDatabase().rawQuery(
                 "select count(*) from [" + annotationHelper.getTableName() + "]"
-                        + (selection == null ? "" : (" where " + annotationHelper.exchange(selection))),
+                        + (selection == null ? "" : (" where " + databaseHelper.getLiteQuery().exchange(tableClass, selection))),
                 selectionArgs);
         cursor.moveToFirst();
         int count= cursor.getInt(0);
