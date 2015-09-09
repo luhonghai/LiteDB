@@ -295,7 +295,7 @@ public abstract class LiteDatabaseHelper {
      *  Get database connection.
      * @return SQLite database object
      */
-    public final SQLiteDatabase getDatabase() {
+    public final synchronized SQLiteDatabase getDatabase() {
         return mDB;
     }
 

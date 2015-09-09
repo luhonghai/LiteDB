@@ -28,6 +28,7 @@ package com.luhonghai.litedb;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
 import com.luhonghai.litedb.annotation.AnnotationHelper;
@@ -46,6 +47,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -53,8 +55,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
-
-import jodd.datetime.JDateTime;
 
 /**
  * Created by luhonghai on 07/09/15.
@@ -94,6 +94,21 @@ public class LiteBaseDao<T> {
         this.sdfDateValue.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
+    /**
+     * Get lite query object
+     * @return Lite query
+     */
+    public LiteQuery getLiteQuery() {
+        return databaseHelper.getLiteQuery();
+    }
+
+    /**
+     * Get current database object
+     * @return SQLitedatabase
+     */
+    public SQLiteDatabase getDatabase() {
+        return databaseHelper.getDatabase();
+    }
     /**
      * Get annotation helper
      * @return annotation helper
@@ -187,7 +202,14 @@ public class LiteBaseDao<T> {
                     contentValues.put(key, sdfDateValue.format((Date) fieldValue));
                     break;
                 case REAL:
-                    contentValues.put(key, new JDateTime(((Date) fieldValue).getTime()).getJulianDateDouble());
+                    try {
+                        Class<?> jdateClass = Class.forName("jodd.datetime.JDateTime");
+                        Object obj = jdateClass.getConstructor(long.class).newInstance(((Date) fieldValue).getTime());
+                        Method method = jdateClass.getMethod("getJulianDateDouble");
+                        contentValues.put(key, (double) method.invoke(obj));
+                    } catch (Exception e) {
+                        throw new LiteDatabaseException("Could not set date value of REAL type", e);
+                    }
                     break;
                 case INTEGER:
                     contentValues.put(key, ((Date) fieldValue).getTime());
@@ -277,8 +299,16 @@ public class LiteBaseDao<T> {
                     break;
                 case REAL:
                     double jdDate = cursor.getDouble(columnIndex);
-                    if (jdDate != 0.0d)
-                        value = new JDateTime(jdDate).convertToDate();
+                    if (jdDate != 0.0d) {
+                        try {
+                            Class<?> jdateClass = Class.forName("jodd.datetime.JDateTime");
+                            Object obj = jdateClass.getConstructor(double.class).newInstance(jdDate);
+                            Method method = jdateClass.getMethod("convertToDate");
+                            value = method.invoke(obj);
+                        } catch (Exception e) {
+                            throw new LiteDatabaseException("Could not get date value from field type REAL", e);
+                        }
+                    }
                     break;
                 case INTEGER:
                     long unixDate = cursor.getLong(columnIndex);
