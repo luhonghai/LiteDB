@@ -63,7 +63,7 @@ public class LiteBaseDao<T> {
     /**
      *
      */
-    private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+    public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
     /**
      *
      */

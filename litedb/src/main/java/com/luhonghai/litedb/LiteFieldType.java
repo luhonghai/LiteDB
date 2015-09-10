@@ -23,32 +23,23 @@
  *
  *
  */
-package com.luhonghai.litedb.example.db;
 
-import android.content.Context;
-
-import com.luhonghai.litedb.LiteDatabaseHelper;
-import com.luhonghai.litedb.annotation.LiteDatabase;
-import com.luhonghai.litedb.example.entity.ComicBook;
-import com.luhonghai.litedb.example.entity.Contact;
-import com.luhonghai.litedb.exception.AnnotationNotFound;
-import com.luhonghai.litedb.exception.InvalidAnnotationData;
+package com.luhonghai.litedb;
 
 /**
- * Created by luhonghai on 07/09/15.
+ * Created by luhonghai on 9/10/15.
+ * All allowed field type
  */
-@LiteDatabase(tables = {Contact.class, ComicBook.class})
-public class MainDatabaseHelper extends LiteDatabaseHelper {
-    /**
-     * Construct database service with context of the application.
-     *
-     * @param context the Context within which to work
-     */
-    public MainDatabaseHelper(Context context) throws AnnotationNotFound, InvalidAnnotationData {
-        super(context);
-    }
-
-    public MainDatabaseHelper(Context context, DatabaseListener databaseListener) throws AnnotationNotFound, InvalidAnnotationData {
-        super(context, databaseListener);
-    }
+public enum LiteFieldType {
+    LONG,
+    STRING,
+    INTEGER,
+    BYTE_ARRAY,
+    DOUBLE,
+    FLOAT,
+    SHORT,
+    BYTE,
+    BOOLEAN,
+    DATE,
+    SERIALIZABLE
 }

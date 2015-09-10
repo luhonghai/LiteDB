@@ -78,5 +78,5 @@ public @interface  LiteColumn {
      * INTEGER as Unix Time, the number of seconds since 1970-01-01 00:00:00 UTC.
      * See more https://www.sqlite.org/datatype3.html
      */
-    LiteColumnType dateColumnType() default LiteColumnType.TEXT;
+    LiteColumnType dateColumnType() default LiteColumnType.INTEGER;
 }

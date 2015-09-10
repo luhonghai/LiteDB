@@ -26,16 +26,22 @@
 package com.luhonghai.litedb.annotation;
 
 import com.luhonghai.litedb.LiteColumnType;
+import com.luhonghai.litedb.LiteFieldType;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 import com.luhonghai.litedb.exception.UnsupportedFieldType;
+import com.luhonghai.litedb.meta.LiteColumnMeta;
+import com.luhonghai.litedb.meta.LiteTableMeta;
 
 import java.io.Externalizable;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+
+import jodd.util.StringUtil;
 
 /**
  * Created by luhonghai on 07/09/15.
@@ -223,11 +229,20 @@ public class AnnotationHelper {
 
     /**
      * Get SQLite type
-     * INTEGER, TEXT
      * @param field
      * @return SQLite column type that is matched with field type
      */
     public final String getColumnType(Field field) throws UnsupportedFieldType {
+        return getLiteColumnType(field).toString();
+    }
+
+    /**
+     * Get SQLite type
+     * @param field
+     * @return
+     * @throws UnsupportedFieldType
+     */
+    public final LiteColumnType getLiteColumnType(Field field) throws UnsupportedFieldType {
         Class<?> fieldType = field.getType();
         LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
         if (fieldType.isAssignableFrom(Long.class)
@@ -241,29 +256,78 @@ public class AnnotationHelper {
                 || fieldType.isAssignableFrom(Boolean.class)
                 || fieldType.isAssignableFrom(boolean.class)
                 ) {
-            return LiteColumnType.INTEGER.toString();
+            return LiteColumnType.INTEGER;
         } else if (fieldType.isAssignableFrom(String.class)) {
-            return  LiteColumnType.TEXT.toString();
+            return  LiteColumnType.TEXT;
         }  else if (fieldType.isAssignableFrom(Byte[].class)
                 || fieldType.isAssignableFrom(byte[].class)
                 || Serializable.class.isAssignableFrom(fieldType.getClass())
                 || Externalizable.class.isAssignableFrom(fieldType.getClass())) {
-            return  LiteColumnType.BLOB.toString();
+            return  LiteColumnType.BLOB;
         } else if (fieldType.isAssignableFrom(Double.class)
                 || fieldType.isAssignableFrom(double.class)
                 || fieldType.isAssignableFrom(Float.class)
                 || fieldType.isAssignableFrom(float.class)
                 ) {
-            return LiteColumnType.REAL.toString();
+            return LiteColumnType.REAL;
         } else if (fieldType.isAssignableFrom(Date.class)
                 && (liteColumn.dateColumnType() == LiteColumnType.INTEGER
-                    || liteColumn.dateColumnType() == LiteColumnType.REAL
-                    || liteColumn.dateColumnType() == LiteColumnType.TEXT)) {
-            return LiteColumnType.DATE.toString();
+                || liteColumn.dateColumnType() == LiteColumnType.REAL
+                || liteColumn.dateColumnType() == LiteColumnType.TEXT)) {
+            return LiteColumnType.DATE;
         } else {
             throw new UnsupportedFieldType(clazz, field);
         }
     }
+
+    /**
+     * Get field type enum
+     * @param field
+     * @return
+     * @throws UnsupportedFieldType
+     */
+    public final LiteFieldType getLiteFieldType(Field field) throws UnsupportedFieldType {
+        Class<?> fieldType = field.getType();
+        if (fieldType.isAssignableFrom(Long.class)
+                || fieldType.isAssignableFrom(long.class)) {
+            return LiteFieldType.LONG;
+        } else if (fieldType.isAssignableFrom(Integer.class)
+                || fieldType.isAssignableFrom(int.class)) {
+            return LiteFieldType.INTEGER;
+        } else if (fieldType.isAssignableFrom(Short.class)
+                || fieldType.isAssignableFrom(short.class)){
+            return LiteFieldType.SHORT;
+        } else if (fieldType.isAssignableFrom(Byte.class)
+                || fieldType.isAssignableFrom(byte.class)) {
+            return LiteFieldType.BYTE;
+        } else if (fieldType.isAssignableFrom(Boolean.class)
+                || fieldType.isAssignableFrom(boolean.class)
+                ) {
+            return LiteFieldType.BOOLEAN;
+        } else if (fieldType.isAssignableFrom(String.class)) {
+            return LiteFieldType.STRING;
+        }  else if (fieldType.isAssignableFrom(Byte[].class)
+                || fieldType.isAssignableFrom(byte[].class)) {
+            return LiteFieldType.BYTE_ARRAY;
+        } else if (Serializable.class.isAssignableFrom(fieldType.getClass())
+                || Externalizable.class.isAssignableFrom(fieldType.getClass())) {
+            return  LiteFieldType.SERIALIZABLE;
+        } else if (fieldType.isAssignableFrom(Double.class)
+                || fieldType.isAssignableFrom(double.class)) {
+            return LiteFieldType.DOUBLE;
+        } else if (fieldType.isAssignableFrom(Float.class)
+                || fieldType.isAssignableFrom(float.class)
+                ) {
+            return LiteFieldType.FLOAT;
+        } else if (fieldType.isAssignableFrom(Date.class)
+                ) {
+            return LiteFieldType.DATE;
+        } else {
+            throw new UnsupportedFieldType(clazz, field);
+        }
+    }
+
+
 
     public final Field getPrimaryField() throws InvalidAnnotationData {
         return getPrimaryField(clazz);
@@ -290,5 +354,42 @@ public class AnnotationHelper {
             }
         }
         throw new InvalidAnnotationData("No primary key found for table " + clazz.getName());
+    }
+
+    public LiteTableMeta generateTableMeta() throws AnnotationNotFound, InvalidAnnotationData, UnsupportedFieldType {
+        LiteTableMeta meta = new LiteTableMeta();
+        meta.setTableName(getTableName());
+        HashMap<String, LiteColumnMeta> columns = new HashMap<String, LiteColumnMeta>();
+        generateTableMeta(meta,columns,clazz);
+        Class<?> parent = clazz.getSuperclass();
+        if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
+            generateTableMeta(meta,columns, parent);
+        }
+        meta.setColumns(columns);
+        return meta;
+    }
+
+    private void generateTableMeta(final LiteTableMeta tableMeta,
+                                   final HashMap<String, LiteColumnMeta> columns,
+                                   final Class<?> clazz) throws UnsupportedFieldType {
+        for (Field field : clazz.getDeclaredFields()) {
+            if (!field.isAccessible())
+                field.setAccessible(true); // for private variables
+            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
+            if (liteColumn != null) {
+                if (liteColumn.isPrimaryKey() && tableMeta.getPrimaryKey().length() > 0)
+                    tableMeta.setPrimaryKey(field.getName());
+                LiteColumnMeta columnMeta = new LiteColumnMeta();
+                columnMeta.setField(field);
+                columnMeta.setDateColumnType(liteColumn.dateColumnType());
+                String name = liteColumn.name();
+                if (name == null || name.length() == 0)
+                    name = field.getName();
+                columnMeta.setColumnName(name);
+                columnMeta.setColumnType(getLiteColumnType(field));
+                columnMeta.setFieldType(getLiteFieldType(field));
+                columns.put(field.getName(), columnMeta);
+            }
+        }
     }
 }

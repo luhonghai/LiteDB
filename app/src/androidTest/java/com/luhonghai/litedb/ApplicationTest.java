@@ -31,13 +31,18 @@ import android.database.sqlite.SQLiteDatabase;
 import android.test.ApplicationTestCase;
 import android.util.Log;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.luhonghai.litedb.example.db.ContactDao;
 import com.luhonghai.litedb.example.db.MainDatabaseHelper;
 import com.luhonghai.litedb.example.entity.BlobData;
+import com.luhonghai.litedb.example.entity.ComicBook;
 import com.luhonghai.litedb.example.entity.Contact;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 import com.luhonghai.litedb.exception.LiteDatabaseException;
+
+import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.text.ParseException;
@@ -52,19 +57,18 @@ import java.util.UUID;
  */
 public class ApplicationTest extends ApplicationTestCase<Application> {
 
+    private static final String TAG = "TestLiteDB";
+
+    private MainDatabaseHelper databaseHelper;
+
     public ApplicationTest() {
         super(Application.class);
     }
 
-    /**
-     * Just a very simple test
-     * @throws AnnotationNotFound
-     * @throws InvalidAnnotationData
-     * @throws LiteDatabaseException
-     */
-    public void testLiteDatabase() throws LiteDatabaseException, AnnotationNotFound, InvalidAnnotationData {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:ss:mm.SSS", Locale.getDefault());
-        MainDatabaseHelper databaseHelper = new MainDatabaseHelper(getContext(), new LiteDatabaseHelper.DatabaseListener() {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        databaseHelper = new MainDatabaseHelper(getContext(), new LiteDatabaseHelper.DatabaseListener() {
             @Override
             public void onBeforeDatabaseCreate(SQLiteDatabase db) {
 
@@ -87,13 +91,31 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
 
             @Override
             public void onError(SQLiteDatabase db, final String message, Throwable throwable) {
-                Log.e("TESTDB", "onError ", throwable);
+                Log.e(TAG, "onError ", throwable);
                 assertEquals("", message);
             }
         });
+        databaseHelper.open();
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        if (databaseHelper != null)
+            databaseHelper.close();
+    }
+
+    /**
+     * Just a very simple test
+     * @throws AnnotationNotFound
+     * @throws InvalidAnnotationData
+     * @throws LiteDatabaseException
+     */
+    public void testLiteDatabase() throws LiteDatabaseException, AnnotationNotFound, InvalidAnnotationData {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:ss:mm.SSS", Locale.getDefault());
+
         ContactDao contactDao = new ContactDao(databaseHelper);
-        // Try to open database
-        contactDao.open();
+
         // Try to delete all current records
         if (databaseHelper.isTableExists(contactDao.getAnnotationHelper().getTableName()))
             contactDao.deleteAll();
@@ -139,6 +161,22 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
 
         contactDao.deleteByKey(id);
         assertEquals(0, contactDao.count());
-        contactDao.close();
+    }
+
+    public void testBulkInsert() throws AnnotationNotFound, InvalidAnnotationData, LiteDatabaseException, IOException {
+        long start = System.currentTimeMillis();
+        LiteBaseDao<ComicBook> bookLiteBaseDao = new LiteBaseDao<>(databaseHelper, ComicBook.class);
+        bookLiteBaseDao.deleteAll();
+        Gson gson = new Gson();
+        String data = IOUtils.toString(getContext().getAssets().open("comic/comic-v1.json"), "UTF-8");
+        List<ComicBook> comicBooks = gson.fromJson(data, new TypeToken<List<ComicBook>>() {}.getType());
+        bookLiteBaseDao.insert(comicBooks);
+        comicBooks = bookLiteBaseDao.listAll();
+        for (ComicBook comicBook : comicBooks) {
+            Log.i(TAG, "testBulkInsert comic book: " + comicBook.getUrl());
+        }
+        Log.i(TAG, "testBulkInsert. Execution time: " + (System.currentTimeMillis() - start)
+                + "ms. Data size: " + comicBooks.size());
+        assertEquals(2173, comicBooks.size());
     }
 }
