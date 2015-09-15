@@ -56,6 +56,25 @@ public class LiteColumnMeta {
      */
     private LiteColumnType dateColumnType;
 
+    /**
+     * Field is primary key
+     */
+    private boolean isPrimaryKey;
+
+    /**
+     * Autoincrement. Support only number field
+     */
+    private boolean isAutoincrement;
+
+    /**
+     * Not allow null
+     */
+    private boolean isNotNull;
+    /**
+     * Default value
+     */
+    private String defaultValue;
+
     public Field getField() {
         return field;
     }
@@ -94,5 +113,41 @@ public class LiteColumnMeta {
 
     public void setDateColumnType(LiteColumnType dateColumnType) {
         this.dateColumnType = dateColumnType;
+    }
+
+    public boolean isPrimaryKey() {
+        return isPrimaryKey;
+    }
+
+    public void setIsPrimaryKey(boolean isPrimaryKey) {
+        this.isPrimaryKey = isPrimaryKey;
+    }
+
+    public boolean isAutoincrement() {
+        return isAutoincrement;
+    }
+
+    public void setIsAutoincrement(boolean isAutoincrement) {
+        this.isAutoincrement = isAutoincrement;
+    }
+
+    public boolean isNotNull() {
+        return isNotNull;
+    }
+
+    public void setIsNotNull(boolean isNotNull) {
+        this.isNotNull = isNotNull;
+    }
+
+    public String getDefaultValue() {
+        return defaultValue;
+    }
+
+    public void setDefaultValue(String defaultValue) {
+        this.defaultValue = defaultValue;
+    }
+
+    public Object getValue(Object object) throws IllegalAccessException {
+        return field.get(object);
     }
 }

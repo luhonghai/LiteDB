@@ -53,4 +53,12 @@ public @interface LiteDatabase {
      * Table classes must have annotation LiteTable
      */
     Class[] tables();
+
+    /**
+     * If useClassSchema = true
+     * Use class name as table field name as column name in query
+     * If userClassSchema = false
+     * Use real table name and column name in query
+     */
+    boolean useClassSchema() default true;
 }

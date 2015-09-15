@@ -66,6 +66,12 @@ public class LiteTableMeta {
      * Store all column meta data
      */
     private HashMap<String, LiteColumnMeta> columns;
+    /**
+     * All column for select object
+     */
+    private String[] selectColumns;
+
+    private String[] selectFields;
 
     public String getTableName() {
         return tableName;
@@ -122,5 +128,21 @@ public class LiteTableMeta {
 
     public void setColumns(HashMap<String, LiteColumnMeta> columns) {
         this.columns = columns;
+    }
+
+    public String[] getSelectColumns() {
+        return selectColumns;
+    }
+
+    public void setSelectColumns(String[] selectColumns) {
+        this.selectColumns = selectColumns;
+    }
+
+    public String[] getSelectFields() {
+        return selectFields;
+    }
+
+    public void setSelectFields(String[] selectFields) {
+        this.selectFields = selectFields;
     }
 }

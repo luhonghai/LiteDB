@@ -163,20 +163,23 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
         assertEquals(0, contactDao.count());
     }
 
-    public void testBulkInsert() throws AnnotationNotFound, InvalidAnnotationData, LiteDatabaseException, IOException {
-        long start = System.currentTimeMillis();
+    public void testBulkInsertAndUpdate() throws AnnotationNotFound, InvalidAnnotationData, LiteDatabaseException, IOException {
+        Log.i(TAG, "testBulkInsert start");
         LiteBaseDao<ComicBook> bookLiteBaseDao = new LiteBaseDao<>(databaseHelper, ComicBook.class);
         bookLiteBaseDao.deleteAll();
         Gson gson = new Gson();
         String data = IOUtils.toString(getContext().getAssets().open("comic/comic-v1.json"), "UTF-8");
-        List<ComicBook> comicBooks = gson.fromJson(data, new TypeToken<List<ComicBook>>() {}.getType());
+        List<ComicBook> comicBooks = gson.fromJson(data, new TypeToken<List<ComicBook>>() {
+        }.getType());
+        long start = System.currentTimeMillis();
         bookLiteBaseDao.insert(comicBooks);
-        comicBooks = bookLiteBaseDao.listAll();
-        for (ComicBook comicBook : comicBooks) {
-            Log.i(TAG, "testBulkInsert comic book: " + comicBook.getUrl());
-        }
         Log.i(TAG, "testBulkInsert. Execution time: " + (System.currentTimeMillis() - start)
                 + "ms. Data size: " + comicBooks.size());
-        assertEquals(2173, comicBooks.size());
+        List<ComicBook> list = bookLiteBaseDao.listAll();
+        assertEquals(comicBooks.size(), list.size());
+        start = System.currentTimeMillis();
+        bookLiteBaseDao.update(list);
+        Log.i(TAG, "testBulkUpdate. Execution time: " + (System.currentTimeMillis() - start)
+                + "ms. Data size: " + comicBooks.size());
     }
 }

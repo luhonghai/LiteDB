@@ -24,7 +24,7 @@
  *
  */
 
-package com.luhonghai.litedb.ext;
+package com.luhonghai.litedb.bulk;
 
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteStatement;
@@ -40,7 +40,9 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -52,7 +54,7 @@ import java.util.TimeZone;
  * See more http://stackoverflow.com/questions/3501516/android-sqlite-database-slow-insertion
  *
  */
-public class BulkInsert {
+public abstract class AbstractBulk<T> {
 
     private final SQLiteDatabase database;
 
@@ -62,36 +64,73 @@ public class BulkInsert {
 
     private final SimpleDateFormat sdfDateValue;
 
-    public BulkInsert(SQLiteDatabase database, LiteTableMeta tableMeta) {
+    private boolean useTransaction = true;
+
+    public AbstractBulk(SQLiteDatabase database,
+                        LiteTableMeta tableMeta) {
         this.database = database;
         this.tableMeta = tableMeta;
         this.sdfDateValue = new SimpleDateFormat(LiteBaseDao.DEFAULT_DATE_FORMAT, Locale.getDefault());
         this.sdfDateValue.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
-    public void begin() {
-        database.beginTransaction();
-        sqLiteStatement = database.compileStatement(tableMeta.getInsertQuery());
+    public AbstractBulk(SQLiteDatabase database,
+                        LiteTableMeta tableMeta, boolean useTransaction) {
+        this(database, tableMeta);
+        this.useTransaction = useTransaction;
     }
 
-    public long insert(Object object) throws LiteDatabaseException {
-        final String[] fields = tableMeta.getInsertFields();
-        for (int i = 0; i < fields.length; i++) {
-            int index = i + 1;
-            final String fieldName = fields[i];
-            final LiteColumnMeta meta = tableMeta.getColumns().get(fieldName);
-            final Field field = meta.getField();
-            field.setAccessible(true);
-            final Object fieldValue;
-            try {
-                fieldValue = field.get(object);
-            } catch (IllegalAccessException e) {
-                throw new LiteDatabaseException("could not get field value", e);
-            }
-            if (fieldValue == null) {
-                sqLiteStatement.bindNull(index);
-                continue;
-            }
+    /**
+     * The query will be passed to sqLiteStatement
+     * @return query
+     */
+    protected abstract String getQuery();
+
+    /**
+     * Current table meta data
+     * @return table meta data
+     */
+    public LiteTableMeta getTableMeta() {
+        return tableMeta;
+    }
+
+    /**
+     * Current sqLiteStatement
+     * @return sqLiteStatement
+     */
+    public SQLiteStatement getSqLiteStatement() {
+        return sqLiteStatement;
+    }
+
+    /**
+     * Begin transaction
+     */
+    public void begin() {
+        if (useTransaction)
+            database.beginTransaction();
+        sqLiteStatement = database.compileStatement(getQuery());
+    }
+
+    /**
+     * Bind object data to sqlstatement
+     * @param object
+     * @param fieldName
+     * @param index
+     * @throws LiteDatabaseException
+     */
+    protected void bindObject(T object, String fieldName, int index) throws LiteDatabaseException {
+        final LiteColumnMeta meta = tableMeta.getColumns().get(fieldName);
+        final Field field = meta.getField();
+        field.setAccessible(true);
+        final Object fieldValue;
+        try {
+            fieldValue = field.get(object);
+        } catch (IllegalAccessException e) {
+            throw new LiteDatabaseException("could not get field value", e);
+        }
+        if (fieldValue == null) {
+            sqLiteStatement.bindNull(index);
+        } else {
             switch (meta.getFieldType()) {
                 case BOOLEAN:
                     sqLiteStatement.bindLong(index,
@@ -114,17 +153,19 @@ public class BulkInsert {
                         objectOutputStream.flush();
                         outputStream.flush();
                     } catch (IOException e) {
-                        throw new LiteDatabaseException("could not parse byte array data",e);
+                        throw new LiteDatabaseException("could not parse byte array data", e);
                     } finally {
                         if (objectOutputStream != null) {
                             try {
                                 objectOutputStream.close();
-                            } catch (Exception e) {}
+                            } catch (Exception e) {
+                            }
                         }
                         if (outputStream != null) {
                             try {
                                 outputStream.close();
-                            } catch (Exception e) {}
+                            } catch (Exception e) {
+                            }
                         }
                     }
                     break;
@@ -141,7 +182,7 @@ public class BulkInsert {
                             break;
                         default:
                             throw new LiteDatabaseException("Invalid date column type " + meta.getDateColumnType().toString()
-                                , new InvalidAnnotationData("Invalid dateColumnType"));
+                                    , new InvalidAnnotationData("Invalid dateColumnType"));
                     }
                     break;
                 case DOUBLE:
@@ -165,16 +206,60 @@ public class BulkInsert {
                     break;
             }
         }
-        long rowId = sqLiteStatement.executeInsert();
-        sqLiteStatement.clearBindings();
-        return rowId;
     }
 
+    /**
+     *
+     * @param list
+     * @return array of object id or number of updating data
+     * @throws LiteDatabaseException
+     */
+    public long[] execute(Collection<T> list) throws LiteDatabaseException {
+        if (list == null || list.size() == 0) return new long[]{};
+        long[] ids = new long[list.size()];
+        int count = 0;
+        Iterator<T> iterator = list.iterator();
+        while (iterator.hasNext()) {
+            ids[count++] = execute(iterator.next());
+        }
+        return ids;
+    }
+    /**
+     *
+     * @param list
+     * @return array of object id or number of updating data
+     * @throws LiteDatabaseException
+     */
+    public long[] execute(T[] list) throws LiteDatabaseException {
+        if (list == null || list.length == 0) return new long[]{};
+        long[] ids = new long[list.length];
+        for (int i = 0; i < list.length; i++) {
+            ids[i] = execute(list[i]);
+        }
+        return ids;
+    }
+
+    /**
+     *
+     * @param object
+     * @return object id or number of updating data
+     * @throws LiteDatabaseException
+     */
+    public abstract long execute(T object) throws LiteDatabaseException;
+
+    /**
+     * Set transaction successful
+     */
     public void success() {
-        database.setTransactionSuccessful();
+        if (useTransaction)
+            database.setTransactionSuccessful();
     }
 
+    /**
+     * End transaction
+     */
     public void end() {
-        database.endTransaction();
+        if(useTransaction)
+            database.endTransaction();
     }
 }

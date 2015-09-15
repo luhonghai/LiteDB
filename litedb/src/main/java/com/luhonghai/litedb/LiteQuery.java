@@ -26,94 +26,78 @@
 
 package com.luhonghai.litedb;
 
-import com.luhonghai.litedb.annotation.AnnotationHelper;
-import com.luhonghai.litedb.annotation.LiteColumn;
-import com.luhonghai.litedb.annotation.LiteTable;
-import com.luhonghai.litedb.exception.AnnotationNotFound;
-import com.luhonghai.litedb.exception.InvalidAnnotationData;
+import android.util.Log;
 
-import java.lang.reflect.Field;
+import com.luhonghai.litedb.exception.AnnotationNotFound;
+
+import org.antlr.v4.runtime.misc.NotNull;
+
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+
+import nl.bigo.sqliteparser.SQLiteParser;
 
 /**
  * Created by luhonghai on 08/09/15.
  */
 public class LiteQuery {
 
-    private final Class[] tableClasses;
+    private static final String TAG = "LiteQuery";
 
-    private final Map<String, Map<String, String>> data
-            = new ConcurrentHashMap<String, Map<String, String>>();
+    interface QueryAnalyzeListener {
 
-    public LiteQuery(Class[] tableClasses) throws InvalidAnnotationData, AnnotationNotFound {
-        this.tableClasses = tableClasses;
+        void onFoundTable(String table);
+
+        void onFoundColumn(String table, String column);
     }
 
-    /**
-     * Init mapping data
-     */
-    private void init() throws AnnotationNotFound {
-        synchronized (data) {
-            if (data.size() == 0) {
-                for (Class<?> clazz : tableClasses) {
-                    AnnotationHelper annotationHelper = new AnnotationHelper(clazz);
-                    if (!data.containsKey(clazz.getName())) {
-                        Map<String, String> items = new ConcurrentHashMap<String, String>();
-                        items.put(clazz.getName(), annotationHelper.getTableName());
-                        for (Field field : clazz.getDeclaredFields()) {
-                            if (field.getAnnotation(LiteColumn.class) != null
-                                    && !items.containsKey(field.getName()))
-                                items.put(field.getName(), annotationHelper.getColumnName(field));
-                        }
-                        Class<?> parent = clazz.getSuperclass();
-                        if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
-                            for (Field field : parent.getDeclaredFields()) {
-                                if (field.getAnnotation(LiteColumn.class) != null
-                                        && !items.containsKey(field.getName()))
-                                    items.put(field.getName(), annotationHelper.getColumnName(field));
-                            }
-                        }
-                        data.put(clazz.getName(), items);
-                    }
-                }
-            }
-        }
+    private final LiteDatabaseHelper liteDatabaseHelper;
+
+    public LiteQuery(LiteDatabaseHelper liteDatabaseHelper) {
+        this.liteDatabaseHelper = liteDatabaseHelper;
     }
-    /**
+        /**
      * To exchange raw query to SQLite query.
      * Raw query include class name and field name of LiteTable
      * @param sql
      * @return the sql is exchanged to SQLite query
      */
-    public String exchange(String sql) throws AnnotationNotFound {
-        if (sql == null || sql.length() == 0) return sql;
-        for (Class clazz : tableClasses) {
-            sql = exchange(clazz, sql);
-        }
+    public String exchange(String sql)  {
+        if (sql == null || sql.length() == 0 || !liteDatabaseHelper.isUseClassSchema()) return sql;
+        final StringBuffer stringBuffer = new StringBuffer(sql);
+        analyzeQuery(sql + ";", new QueryAnalyzeListener() {
+            @Override
+            public void onFoundTable(String table) {
+                Log.d(TAG, "onFoundTable " + table);
+            }
+
+            @Override
+            public void onFoundColumn(String table, String column) {
+                Log.d(TAG, "onFoundColumn " + column);
+            }
+        });
         return sql;
     }
 
-    /**
-     * To exchange raw query to SQLite query.
-     * Raw query include class name and field name of LiteTable
-     * @param sql
-     * @param clazz
-     * @return the sql is exchanged by annotation data
-     */
-    public String exchange(Class clazz, String sql) throws AnnotationNotFound {
-        //TODO Must crazy like Datanucleus
-        if (sql == null || sql.length() == 0) return sql;
-        init();
-        Map<String, String> mappingData = data.get(clazz.getName());
-        Iterator<String> keys = mappingData.keySet().iterator();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            String value = mappingData.get(key);
-            sql = exchange(sql, key, value);
-        }
-        return sql;
+    private void analyzeQuery(String sql, final QueryAnalyzeListener listener) {
+        nl.bigo.sqliteparser.SQLiteLexer lexer = new nl.bigo.sqliteparser.SQLiteLexer(
+                new org.antlr.v4.runtime.ANTLRInputStream(sql));
+        nl.bigo.sqliteparser.SQLiteParser parser = new nl.bigo.sqliteparser.SQLiteParser(
+                new org.antlr.v4.runtime.CommonTokenStream(lexer));
+        // Invoke the `select_stmt` production.
+        org.antlr.v4.runtime.tree.ParseTree tree = parser.select_stmt();
+        org.antlr.v4.runtime.tree.ParseTreeWalker.DEFAULT.walk(
+                new nl.bigo.sqliteparser.SQLiteBaseListener(){
+            @Override
+            public void enterExpr(
+                    nl.bigo.sqliteparser.SQLiteParser.ExprContext ctx) {
+                if (ctx.table_name() != null) {
+                    listener.onFoundTable(ctx.table_name().getText());
+                } else if (ctx.column_name() != null) {
+                    listener.onFoundColumn("", ctx.column_name().getText());
+                }
+            }
+        }, tree);
     }
 
     /**

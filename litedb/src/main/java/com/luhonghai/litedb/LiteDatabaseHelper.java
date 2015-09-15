@@ -37,8 +37,13 @@ import com.luhonghai.litedb.annotation.LiteColumn;
 import com.luhonghai.litedb.annotation.LiteDatabase;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
+import com.luhonghai.litedb.exception.LiteDatabaseException;
+import com.luhonghai.litedb.exception.UnsupportedFieldType;
+import com.luhonghai.litedb.meta.LiteTableMeta;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by luhonghai on 07/09/15.
@@ -98,6 +103,21 @@ public abstract class LiteDatabaseHelper {
     /**
      * A helper class is used to manage database.
      */
+    private final ConcurrentHashMap<String, LiteTableMeta> tableMetaData
+            = new ConcurrentHashMap<String, LiteTableMeta>();
+
+    /**
+     * A helper class is used to manage database.
+     */
+    private final ConcurrentHashMap<String, AnnotationHelper> annotationHelpers
+            = new ConcurrentHashMap<String, AnnotationHelper>();
+
+    private boolean useClassSchema;
+
+    public boolean isUseClassSchema() {
+        return useClassSchema;
+    }
+
     public static final class DatabaseHelper extends SQLiteOpenHelper {
 
         private final Class[] tableClasses;
@@ -233,6 +253,10 @@ public abstract class LiteDatabaseHelper {
         public void setDatabaseListener(DatabaseListener databaseListener) {
             this.databaseListener = databaseListener;
         }
+
+        public Class[] getTableClass() {
+            return tableClasses;
+        }
     }
 
     /**
@@ -246,6 +270,7 @@ public abstract class LiteDatabaseHelper {
         if (liteDatabase == null)
             throw new AnnotationNotFound(LiteDatabase.class);
         mContext = context;
+        useClassSchema = liteDatabase.useClassSchema();
         Class[] tableClasses = liteDatabase.tables();
         if (tableClasses == null || tableClasses.length == 0)
             throw new InvalidAnnotationData("Require at least one table in database");
@@ -256,7 +281,7 @@ public abstract class LiteDatabaseHelper {
                 dbName,
                 liteDatabase.version(),
                 tableClasses);
-        liteQuery = new LiteQuery(tableClasses);
+        liteQuery = new LiteQuery(this);
     }
 
     /**
@@ -295,7 +320,7 @@ public abstract class LiteDatabaseHelper {
      *  Get database connection.
      * @return SQLite database object
      */
-    public final synchronized SQLiteDatabase getDatabase() {
+    public final SQLiteDatabase getDatabase() {
         return mDB;
     }
 
@@ -352,5 +377,39 @@ public abstract class LiteDatabaseHelper {
      */
     public boolean isColumnExists(String table, String column) {
         return mOpenHelper.isColumnExists(mDB, table, column);
+    }
+
+    /**
+     * Get annotation helper
+     * @param clazz
+     * @return annotation helper
+     */
+    public AnnotationHelper getAnnotationHelper(Class<?> clazz) {
+        if (!annotationHelpers.containsKey(clazz.getName())) {
+            annotationHelpers.put(clazz.getName(), new AnnotationHelper(clazz));
+        }
+        return annotationHelpers.get(clazz.getName());
+    }
+
+    /**
+     * Get table meta data
+     * @param clazz
+     * @return
+     * @throws LiteDatabaseException
+     */
+    public LiteTableMeta getTableMeta(Class<?> clazz) throws LiteDatabaseException {
+        if (!tableMetaData.containsKey(clazz.getName())) {
+            final AnnotationHelper annotationHelper = getAnnotationHelper(clazz);
+            try {
+                tableMetaData.put(clazz.getName(), annotationHelper.generateTableMeta());
+            } catch (AnnotationNotFound | UnsupportedFieldType | InvalidAnnotationData e) {
+                throw new LiteDatabaseException("Could not get table meta data",e);
+            }
+        }
+        return tableMetaData.get(clazz.getName());
+    }
+
+    public Class[] getTableClasess() {
+        return mOpenHelper.getTableClass();
     }
 }

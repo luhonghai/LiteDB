@@ -39,12 +39,14 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 import jodd.util.StringUtil;
 
 /**
  * Created by luhonghai on 07/09/15.
+ * Help to analyze Lite DB annotation
  */
 public class AnnotationHelper {
 
@@ -54,6 +56,10 @@ public class AnnotationHelper {
         this.clazz = tableClazz;
     }
 
+    /**
+     * Get table class
+     * @return Table class
+     */
     public Class getTableClass() {
         return clazz;
     }
@@ -109,6 +115,11 @@ public class AnnotationHelper {
         return columnsList.toArray(columnsArray);
     }
 
+    /**
+     * Find columns
+     * @param columnsList
+     * @param clazz
+     */
     private void findColumns(final List<String> columnsList, Class clazz) {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn fieldEntityAnnotation = field.getAnnotation(LiteColumn.class);
@@ -139,6 +150,13 @@ public class AnnotationHelper {
        return rSql + ");";
     }
 
+    /**
+     * Find column is defined in class
+     * @param sql
+     * @param clazz
+     * @throws UnsupportedFieldType
+     * @throws InvalidAnnotationData
+     */
     private void findColumn(final StringBuffer sql, Class clazz) throws UnsupportedFieldType, InvalidAnnotationData {
         for (Field field : clazz.getDeclaredFields()) {
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
@@ -239,7 +257,7 @@ public class AnnotationHelper {
     /**
      * Get SQLite type
      * @param field
-     * @return
+     * @return SQLite type
      * @throws UnsupportedFieldType
      */
     public final LiteColumnType getLiteColumnType(Field field) throws UnsupportedFieldType {
@@ -283,7 +301,7 @@ public class AnnotationHelper {
     /**
      * Get field type enum
      * @param field
-     * @return
+     * @return field type
      * @throws UnsupportedFieldType
      */
     public final LiteFieldType getLiteFieldType(Field field) throws UnsupportedFieldType {
@@ -327,12 +345,21 @@ public class AnnotationHelper {
         }
     }
 
-
-
+    /**
+     * Get primary field
+     * @return primary field
+     * @throws InvalidAnnotationData
+     */
     public final Field getPrimaryField() throws InvalidAnnotationData {
         return getPrimaryField(clazz);
     }
 
+    /**
+     * Get primary field of classes
+     * @param targetClass
+     * @return Primary field
+     * @throws InvalidAnnotationData
+     */
     public final Field getPrimaryField(Class<?> targetClass) throws InvalidAnnotationData {
         for (Field field : targetClass.getDeclaredFields()) {
             if (!field.isAccessible())
@@ -356,19 +383,111 @@ public class AnnotationHelper {
         throw new InvalidAnnotationData("No primary key found for table " + clazz.getName());
     }
 
+    /**
+     * Generate table meta data of class
+     * @return Table meta data
+     * @throws AnnotationNotFound
+     * @throws InvalidAnnotationData
+     * @throws UnsupportedFieldType
+     */
+
     public LiteTableMeta generateTableMeta() throws AnnotationNotFound, InvalidAnnotationData, UnsupportedFieldType {
         LiteTableMeta meta = new LiteTableMeta();
         meta.setTableName(getTableName());
         HashMap<String, LiteColumnMeta> columns = new HashMap<String, LiteColumnMeta>();
-        generateTableMeta(meta,columns,clazz);
+        generateTableMeta(meta, columns, clazz);
         Class<?> parent = clazz.getSuperclass();
         if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
             generateTableMeta(meta,columns, parent);
         }
+        if (meta.getPrimaryKey().length() == 0)
+            throw new InvalidAnnotationData("Require one primary key. Simply to extends LiteEntity class");
         meta.setColumns(columns);
+        String[] selectColumns = new String[columns.size()];
+        String[] selectFields = new String[columns.size()];
+        Iterator<String> fieldNames = columns.keySet().iterator();
+        int count = 0;
+        List<String> insertFields = new ArrayList<String>();
+        List<String> updateFields = new ArrayList<String>();
+        while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            LiteColumnMeta columnMeta = columns.get(fieldName);
+            selectColumns[count] = columnMeta.getColumnName();
+            selectFields[count] = fieldName;
+            if (!columnMeta.isAutoincrement() && !insertFields.contains(fieldName)) {
+                insertFields.add(fieldName);
+            }
+            if (!columnMeta.isPrimaryKey() && !columnMeta.isAutoincrement()
+                    && !updateFields.contains(fieldName)){
+                updateFields.add(fieldName);
+            }
+            count++;
+        }
+        meta.setSelectColumns(selectColumns);
+        meta.setSelectFields(selectFields);
+        String[] listInsertFields = new String[insertFields.size()];
+        insertFields.toArray(listInsertFields);
+        meta.setInsertFields(listInsertFields);
+        String[] listUpdateFields = new String[updateFields.size()];
+        updateFields.toArray(listUpdateFields);
+        meta.setUpdateFields(listUpdateFields);
+        meta.setInsertQuery(generateInsertQuery(meta));
+        meta.setUpdateQuery(generateUpdateQuery(meta));
         return meta;
     }
 
+    /**
+     * Generate default update query, use for bulk update
+     * @param tableMeta
+     * @return
+     */
+    public String generateUpdateQuery(final LiteTableMeta tableMeta) {
+        final String[] updateFields = tableMeta.getUpdateFields();
+        StringBuffer query = new StringBuffer("UPDATE [" + tableMeta.getTableName() + "] SET ");
+        for (int i = 0; i < updateFields.length; i++) {
+            query.append("[")
+                    .append(tableMeta.getColumns().get(updateFields[i]).getColumnName())
+                    .append("]")
+                    .append(" = ?");
+            if (i < updateFields.length - 1)
+                query.append(",");
+        }
+        query.append(" WHERE ")
+                .append("[")
+                .append(tableMeta.getColumns().get(tableMeta.getPrimaryKey()).getColumnName())
+                .append("]")
+                .append(" = ?");
+        return query.toString();
+    }
+
+    /**
+     * Generate default insert query, use for bulk insert
+     * @param tableMeta
+     * @return insert query
+     */
+    public String generateInsertQuery(final LiteTableMeta tableMeta) {
+        final String[] insertFields = tableMeta.getInsertFields();
+        StringBuffer query = new StringBuffer("INSERT INTO [" + tableMeta.getTableName() + "](");
+        StringBuffer params = new StringBuffer();
+        for (int i = 0; i < insertFields.length; i++) {
+            query.append("[").append(tableMeta.getColumns().get(insertFields[i]).getColumnName()).append("]");
+            params.append("?");
+            if (i < insertFields.length - 1) {
+                query.append(",");
+                params.append(",");
+            }
+        }
+        query.append(") VALUES (").append(params.toString()).append(")");
+        return query.toString();
+    }
+
+    /**
+     * Find meta data from class
+     * @param tableMeta
+     * @param columns
+     * @param clazz
+     * @throws UnsupportedFieldType
+     */
     private void generateTableMeta(final LiteTableMeta tableMeta,
                                    final HashMap<String, LiteColumnMeta> columns,
                                    final Class<?> clazz) throws UnsupportedFieldType {
@@ -377,7 +496,7 @@ public class AnnotationHelper {
                 field.setAccessible(true); // for private variables
             LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
             if (liteColumn != null) {
-                if (liteColumn.isPrimaryKey() && tableMeta.getPrimaryKey().length() > 0)
+                if (liteColumn.isPrimaryKey() && tableMeta.getPrimaryKey().length() == 0)
                     tableMeta.setPrimaryKey(field.getName());
                 LiteColumnMeta columnMeta = new LiteColumnMeta();
                 columnMeta.setField(field);
@@ -388,8 +507,13 @@ public class AnnotationHelper {
                 columnMeta.setColumnName(name);
                 columnMeta.setColumnType(getLiteColumnType(field));
                 columnMeta.setFieldType(getLiteFieldType(field));
+                columnMeta.setIsAutoincrement(liteColumn.isAutoincrement());
+                columnMeta.setIsPrimaryKey(liteColumn.isPrimaryKey());
+                columnMeta.setIsNotNull(liteColumn.isNotNull());
+                columnMeta.setDefaultValue(liteColumn.defaultValue());
                 columns.put(field.getName(), columnMeta);
             }
         }
     }
 }
+
