@@ -26,93 +26,68 @@
 
 package com.luhonghai.litedb;
 
-import com.luhonghai.litedb.annotation.AnnotationHelper;
-import com.luhonghai.litedb.annotation.LiteColumn;
-import com.luhonghai.litedb.annotation.LiteTable;
-import com.luhonghai.litedb.exception.AnnotationNotFound;
-import com.luhonghai.litedb.exception.InvalidAnnotationData;
-
-import java.lang.reflect.Field;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by luhonghai on 08/09/15.
  */
 public class LiteQuery {
 
-    private final Class[] tableClasses;
+    private static final String TAG = "LiteQuery";
 
-    private final Map<String, Map<String, String>> data
-            = new ConcurrentHashMap<String, Map<String, String>>();
-
-    public LiteQuery(Class[] tableClasses) throws InvalidAnnotationData, AnnotationNotFound {
-        this.tableClasses = tableClasses;
+    private enum ContextType {
+        TABLE_NAME,
+        TABLE_ALIAS,
+        COLUMN_NAME,
+        COLUMN_ALIAS,
+        UNKNOWN
     }
 
-    /**
-     * Init mapping data
-     */
-    private void init() throws AnnotationNotFound {
-        synchronized (data) {
-            if (data.size() == 0) {
-                for (Class<?> clazz : tableClasses) {
-                    AnnotationHelper annotationHelper = new AnnotationHelper(clazz);
-                    if (!data.containsKey(clazz.getName())) {
-                        Map<String, String> items = new ConcurrentHashMap<String, String>();
-                        items.put(clazz.getName(), annotationHelper.getTableName());
-                        for (Field field : clazz.getDeclaredFields()) {
-                            if (field.getAnnotation(LiteColumn.class) != null
-                                    && !items.containsKey(field.getName()))
-                                items.put(field.getName(), annotationHelper.getColumnName(field));
-                        }
-                        Class<?> parent = clazz.getSuperclass();
-                        if (parent.isAssignableFrom(clazz.getAnnotation(LiteTable.class).allowedParent())) {
-                            for (Field field : parent.getDeclaredFields()) {
-                                if (field.getAnnotation(LiteColumn.class) != null
-                                        && !items.containsKey(field.getName()))
-                                    items.put(field.getName(), annotationHelper.getColumnName(field));
-                            }
-                        }
-                        data.put(clazz.getName(), items);
-                    }
-                }
+    private class QueryContext {
+
+        ContextType type;
+
+        String name;
+
+        int fromIndex;
+
+        int toIndex;
+
+        List<QueryContext> siblings = new ArrayList<QueryContext>();
+
+        QueryContext(ContextType type) {
+            this.type = type;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o != null && o instanceof QueryContext
+                    && !"".equals(name)) {
+                return name.equals(((QueryContext) o).name);
             }
+            return super.equals(o);
+        }
+
+        @Override
+        public String toString() {
+            return name;
         }
     }
+
+    private final LiteDatabaseHelper liteDatabaseHelper;
+
+    public LiteQuery(LiteDatabaseHelper liteDatabaseHelper) {
+        this.liteDatabaseHelper = liteDatabaseHelper;
+    }
+
     /**
      * To exchange raw query to SQLite query.
      * Raw query include class name and field name of LiteTable
      * @param sql
      * @return the sql is exchanged to SQLite query
      */
-    public String exchange(String sql) throws AnnotationNotFound {
-        if (sql == null || sql.length() == 0) return sql;
-        for (Class clazz : tableClasses) {
-            sql = exchange(clazz, sql);
-        }
-        return sql;
-    }
-
-    /**
-     * To exchange raw query to SQLite query.
-     * Raw query include class name and field name of LiteTable
-     * @param sql
-     * @param clazz
-     * @return the sql is exchanged by annotation data
-     */
-    public String exchange(Class clazz, String sql) throws AnnotationNotFound {
-        //TODO Must crazy like Datanucleus
-        if (sql == null || sql.length() == 0) return sql;
-        init();
-        Map<String, String> mappingData = data.get(clazz.getName());
-        Iterator<String> keys = mappingData.keySet().iterator();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            String value = mappingData.get(key);
-            sql = exchange(sql, key, value);
-        }
+    public String exchange(String sql)  {
         return sql;
     }
 
@@ -123,10 +98,12 @@ public class LiteQuery {
      * @param value
      * @return the sql is exchanged by key and value
      */
+    @Deprecated
     public String exchange(String sql, String key, String value) {
         while (sql.contains("["  + key + "]")) {
             sql = sql.replace("[" + key + "]", "[" + value + "]");
         }
         return sql;
     }
+
 }

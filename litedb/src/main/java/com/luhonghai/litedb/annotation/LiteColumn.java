@@ -59,12 +59,18 @@ public @interface  LiteColumn {
     String name() default "";
 
     /**
+     * Column alias
+     */
+    String alias() default "";
+
+    /**
      * Simple default values
      * Input value must be valid SQLite value type
      * For example:
-     * Long column -> 1
-     * String column -> 'String value'
-     * Boolean column -> 1 or 0
+     *
+     * Long column: 1
+     * String column: 'String value'
+     * Boolean column: 1 or 0
      */
     String defaultValue() default "";
 
@@ -78,5 +84,5 @@ public @interface  LiteColumn {
      * INTEGER as Unix Time, the number of seconds since 1970-01-01 00:00:00 UTC.
      * See more https://www.sqlite.org/datatype3.html
      */
-    LiteColumnType dateColumnType() default LiteColumnType.TEXT;
+    LiteColumnType dateColumnType() default LiteColumnType.INTEGER;
 }

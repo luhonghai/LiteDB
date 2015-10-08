@@ -35,7 +35,11 @@ import com.luhonghai.litedb.annotation.LiteColumn;
  */
 public abstract class LiteEntity {
 
-    @LiteColumn(name = "_id", isPrimaryKey = true, isAutoincrement = true)
+    public static final String _ID = "_id";
+
+    @LiteColumn(name = _ID
+            , isPrimaryKey = true
+            , isAutoincrement = true)
     private long id;
 
     public long getId() {

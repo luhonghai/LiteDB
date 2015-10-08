@@ -28,14 +28,20 @@ package com.luhonghai.litedb;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteQueryBuilder;
 import android.util.Log;
 
 import com.luhonghai.litedb.annotation.AnnotationHelper;
 import com.luhonghai.litedb.annotation.LiteColumn;
 import com.luhonghai.litedb.annotation.LiteTable;
+import com.luhonghai.litedb.bulk.BulkInsert;
+import com.luhonghai.litedb.bulk.BulkUpdate;
 import com.luhonghai.litedb.exception.AnnotationNotFound;
 import com.luhonghai.litedb.exception.InvalidAnnotationData;
 import com.luhonghai.litedb.exception.LiteDatabaseException;
+import com.luhonghai.litedb.meta.LiteColumnMeta;
+import com.luhonghai.litedb.meta.LiteTableMeta;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -46,15 +52,16 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
-
-import jodd.datetime.JDateTime;
 
 /**
  * Created by luhonghai on 07/09/15.
@@ -63,7 +70,7 @@ public class LiteBaseDao<T> {
     /**
      *
      */
-    private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+    public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
     /**
      *
      */
@@ -87,13 +94,28 @@ public class LiteBaseDao<T> {
      * @param tableClass
      */
     public LiteBaseDao(LiteDatabaseHelper databaseHelper, Class<T> tableClass) {
-        this.annotationHelper = new AnnotationHelper(tableClass);
         this.databaseHelper = databaseHelper;
+        this.annotationHelper = databaseHelper.getAnnotationHelper(tableClass);
         this.tableClass = tableClass;
         this.sdfDateValue = new SimpleDateFormat(DEFAULT_DATE_FORMAT, Locale.getDefault());
         this.sdfDateValue.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
+    /**
+     * Get lite query object
+     * @return Lite query
+     */
+    public LiteQuery getLiteQuery() {
+        return databaseHelper.getLiteQuery();
+    }
+
+    /**
+     * Get current database object
+     * @return SQLitedatabase
+     */
+    public SQLiteDatabase getDatabase() {
+        return databaseHelper.getDatabase();
+    }
     /**
      * Get annotation helper
      * @return annotation helper
@@ -132,14 +154,14 @@ public class LiteBaseDao<T> {
      */
     public ContentValues fillContentValues(final T object) throws LiteDatabaseException {
         ContentValues contentValues = new ContentValues();
-        for (Field field : object.getClass().getDeclaredFields()) {
-            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
-            if (liteColumn != null) {
-                if (!liteColumn.isAutoincrement()) {
-                        putContentValues(contentValues,
-                                field,
-                                object);
-                }
+        Iterator<String> fieldNames = getTableMeta().getColumns().keySet().iterator();
+        while (fieldNames.hasNext()) {
+            final String fieldName = fieldNames.next();
+            final LiteColumnMeta columnMeta = getTableMeta().getColumns().get(fieldName);
+            if (!columnMeta.isAutoincrement()) {
+                putContentValues(contentValues,
+                        fieldName,
+                        object);
             }
         }
         return contentValues;
@@ -153,163 +175,202 @@ public class LiteBaseDao<T> {
      * @throws LiteDatabaseException
      */
     public void putContentValues(final ContentValues contentValues, final Field field,
+                                 final T object) throws LiteDatabaseException {
+        putContentValues(contentValues, field.getName(), object);
+    }
+
+    /**
+     * Put field data to content values
+     * @param contentValues
+     * @param fieldName
+     * @param object
+     * @throws LiteDatabaseException
+     */
+    public void putContentValues(final ContentValues contentValues, final String fieldName,
                                    final T object) throws LiteDatabaseException {
-        if (!field.isAccessible())
-            field.setAccessible(true); // for private variables
         Object fieldValue = null;
+        final LiteColumnMeta columnMeta = getTableMeta().getColumns().get(fieldName);
         try {
-            fieldValue = field.get(object);
+            fieldValue = columnMeta.getValue(object);
         } catch (IllegalAccessException e) {
             throw new LiteDatabaseException("Could not get field value from object",e);
         }
         if (fieldValue == null) return;
-        String key = annotationHelper.getColumnName(field);
-        if (fieldValue instanceof Long) {
-            contentValues.put(key, Long.valueOf(fieldValue.toString()));
-        } else if (fieldValue instanceof String) {
-            contentValues.put(key, fieldValue.toString());
-        } else if (fieldValue instanceof Integer) {
-            contentValues.put(key, Integer.valueOf(fieldValue.toString()));
-        } else if (fieldValue instanceof Float) {
-            contentValues.put(key, Float.valueOf(fieldValue.toString()));
-        } else if (fieldValue instanceof Byte) {
-            contentValues.put(key, Byte.valueOf(fieldValue.toString()));
-        } else if (fieldValue instanceof Short) {
-            contentValues.put(key, Short.valueOf(fieldValue.toString()));
-        } else if (fieldValue instanceof Boolean) {
-            contentValues.put(key, Boolean.parseBoolean(fieldValue.toString()));
-        } else if (fieldValue instanceof Double) {
-            contentValues.put(key, Double.valueOf(fieldValue.toString()));
-        } else if(fieldValue instanceof Date) {
-            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
-            switch (liteColumn.dateColumnType()) {
-                case TEXT:
-                    contentValues.put(key, sdfDateValue.format((Date) fieldValue));
-                    break;
-                case REAL:
-                    contentValues.put(key, new JDateTime(((Date) fieldValue).getTime()).getJulianDateDouble());
-                    break;
-                case INTEGER:
-                    contentValues.put(key, ((Date) fieldValue).getTime());
-                    break;
-            }
-        } else if (fieldValue instanceof Byte[] || fieldValue instanceof byte[]
-                || Serializable.class.isAssignableFrom(fieldValue.getClass())
-                || Externalizable.class.isAssignableFrom(fieldValue.getClass())) {
-            ByteArrayOutputStream outputStream = null;
-            ObjectOutputStream objectOutputStream = null;
-            try {
-                outputStream = new ByteArrayOutputStream();
-                objectOutputStream = new ObjectOutputStream(
-                        outputStream);
-                objectOutputStream.writeObject(fieldValue);
-                contentValues.put(key, outputStream.toByteArray());
-                objectOutputStream.flush();
-                outputStream.flush();
-            } catch (Exception e) {
-                Log.e("", "", e);
-            } finally {
-                if (objectOutputStream != null) {
-                    try {
-                        objectOutputStream.close();
-                    } catch (Exception e) {}
+        String key = columnMeta.getColumnName();
+        switch (columnMeta.getFieldType()) {
+            case LONG:
+                contentValues.put(key, Long.valueOf(fieldValue.toString()));
+                break;
+            case STRING:
+                contentValues.put(key, fieldValue.toString());
+                break;
+            case INTEGER:
+                contentValues.put(key, Integer.valueOf(fieldValue.toString()));
+                break;
+            case FLOAT:
+                contentValues.put(key, Float.valueOf(fieldValue.toString()));
+                break;
+            case BYTE:
+                contentValues.put(key, Byte.valueOf(fieldValue.toString()));
+                break;
+            case SHORT:
+                contentValues.put(key, Short.valueOf(fieldValue.toString()));
+                break;
+            case BOOLEAN:
+                contentValues.put(key, Boolean.parseBoolean(fieldValue.toString()));
+                break;
+            case DOUBLE:
+                contentValues.put(key, Double.valueOf(fieldValue.toString()));
+                break;
+            case DATE:
+                switch (columnMeta.getDateColumnType()) {
+                    case TEXT:
+                        contentValues.put(key, sdfDateValue.format((Date) fieldValue));
+                        break;
+                    case REAL:
+                        contentValues.put(key, new jodd.datetime.JDateTime(((Date) fieldValue).getTime()).getJulianDateDouble());
+                        break;
+                    case INTEGER:
+                        contentValues.put(key, ((Date) fieldValue).getTime());
+                        break;
+                    default:
+                        throw new LiteDatabaseException("Invalid date column type " + columnMeta
+                                .getDateColumnType().toString()
+                                , new InvalidAnnotationData("Invalid dateColumnType"));
                 }
-                if (outputStream != null) {
-                    try {
-                        outputStream.close();
-                    } catch (Exception e) {}
+                break;
+            case BYTE_ARRAY:
+            case SERIALIZABLE:
+                ByteArrayOutputStream outputStream = null;
+                ObjectOutputStream objectOutputStream = null;
+                try {
+                    outputStream = new ByteArrayOutputStream();
+                    objectOutputStream = new ObjectOutputStream(
+                            outputStream);
+                    objectOutputStream.writeObject(fieldValue);
+                    contentValues.put(key, outputStream.toByteArray());
+                    objectOutputStream.flush();
+                    outputStream.flush();
+                } catch (Exception e) {
+                    Log.e("", "", e);
+                } finally {
+                    if (objectOutputStream != null) {
+                        try {
+                            objectOutputStream.close();
+                        } catch (Exception e) {}
+                    }
+                    if (outputStream != null) {
+                        try {
+                            outputStream.close();
+                        } catch (Exception e) {}
+                    }
                 }
-            }
+                break;
         }
     }
 
     /**
-     * Get content from specific types
+     * Get content from specific field
      * @param cursor
      * @param field
      * @return value by special field from cursor
      * @throws LiteDatabaseException
      */
-    public Object getValueFromCursor(Cursor cursor, Field field)
+    public Object getValueFromCursor(Cursor cursor, Field field) throws LiteDatabaseException {
+        return getValueFromCursor(cursor, field.getName());
+    }
+    /**
+     * Get content from specific field
+     * @param cursor
+     * @param fieldName
+     * @return value by special field from cursor
+     * @throws LiteDatabaseException
+     */
+    public Object getValueFromCursor(Cursor cursor, String fieldName)
             throws LiteDatabaseException {
-        Class<?> fieldType = field.getType();
+        LiteColumnMeta columnMeta = getTableMeta().getColumns().get(fieldName);
         Object value = null;
-        int columnIndex = cursor.getColumnIndex(annotationHelper.getColumnName(field));
+        int columnIndex;
+        if (!"".equals(columnMeta.getAlias())) {
+            columnIndex = cursor.getColumnIndex(columnMeta.getAlias());
+        } else {
+            columnIndex = cursor.getColumnIndex(columnMeta.getColumnName());
+        }
         if (columnIndex == -1) return null;
-        if (fieldType.isAssignableFrom(Long.class)
-                || fieldType.isAssignableFrom(long.class)) {
-            value = cursor.getLong(columnIndex);
-        } else if (fieldType.isAssignableFrom(String.class)) {
-            value = cursor.getString(columnIndex);
-        } else if ((fieldType.isAssignableFrom(Integer.class) || fieldType
-                .isAssignableFrom(int.class))) {
-            value = cursor.getInt(columnIndex);
-        } else if ((fieldType.isAssignableFrom(Byte[].class) || fieldType
-                .isAssignableFrom(byte[].class))) {
-            value = cursor.getBlob(columnIndex);
-        } else if ((fieldType.isAssignableFrom(Double.class) || fieldType
-                .isAssignableFrom(double.class))) {
-            value = cursor.getDouble(columnIndex);
-        } else if ((fieldType.isAssignableFrom(Float.class) || fieldType
-                .isAssignableFrom(float.class))) {
-            value = cursor.getFloat(columnIndex);
-        } else if ((fieldType.isAssignableFrom(Short.class) || fieldType
-                .isAssignableFrom(short.class))) {
-            value = cursor.getShort(columnIndex);
-        } else if (fieldType.isAssignableFrom(Byte.class)
-                || fieldType.isAssignableFrom(byte.class)) {
-            value = (byte) cursor.getShort(columnIndex);
-        } else if (fieldType.isAssignableFrom(Boolean.class)
-                || fieldType.isAssignableFrom(boolean.class)) {
-            int booleanInteger = cursor.getInt(columnIndex);
-            value = booleanInteger == 1;
-        } else if (fieldType.isAssignableFrom(Date.class)) {
-            LiteColumn liteColumn = field.getAnnotation(LiteColumn.class);
-            switch (liteColumn.dateColumnType()) {
-                case TEXT:
-                    String date = cursor.getString(columnIndex);
-                    if (date != null && date.length() > 0)
+        switch (columnMeta.getFieldType()) {
+            case LONG:
+                value = cursor.getLong(columnIndex);
+                break;
+            case STRING:
+                value = cursor.getString(columnIndex);
+                break;
+            case INTEGER:
+                value = cursor.getInt(columnIndex);
+                break;
+            case BYTE_ARRAY:
+                value = cursor.getBlob(columnIndex);
+                break;
+            case DOUBLE:
+                value = cursor.getDouble(columnIndex);
+                break;
+            case FLOAT:
+                value = cursor.getFloat(columnIndex);
+                break;
+            case SHORT:
+            case BYTE:
+                value = cursor.getShort(columnIndex);
+                break;
+            case BOOLEAN:
+                value = cursor.getInt(columnIndex) == 1;
+                break;
+            case DATE:
+                switch (columnMeta.getDateColumnType()) {
+                    case TEXT:
+                        String date = cursor.getString(columnIndex);
+                        if (date != null && date.length() > 0)
+                            try {
+                                value = sdfDateValue.parse(date);
+                            } catch (ParseException e) {
+                                throw new LiteDatabaseException("Could not parse date value from database",e);
+                            }
+                        break;
+                    case REAL:
+                        double jdDate = cursor.getDouble(columnIndex);
+                        if (jdDate != 0.0d) {
+                            value = new jodd.datetime.JDateTime(jdDate).convertToDate();
+                        }
+                        break;
+                    case INTEGER:
+                        long unixDate = cursor.getLong(columnIndex);
+                        if (unixDate != 0l)
+                            value = new Date(unixDate);
+                        break;
+                }
+                break;
+            case SERIALIZABLE:
+                byte[] data = cursor.getBlob(columnIndex);
+                if (data != null && data.length > 0) {
+                    ByteArrayInputStream bis = new ByteArrayInputStream(data);
+                    ObjectInput in = null;
+                    try {
+                        in = new ObjectInputStream(bis);
+                        value = in.readObject();
+                    } catch (ClassNotFoundException | IOException e) {
+                        throw new LiteDatabaseException("Could not read serializable object from database",e);
+                    } finally {
                         try {
-                            value = sdfDateValue.parse(date);
-                        } catch (ParseException e) {
-                            throw new LiteDatabaseException("Could not parse date value from database",e);
+                            bis.close();
+                        } catch (IOException ex) {
                         }
-                    break;
-                case REAL:
-                    double jdDate = cursor.getDouble(columnIndex);
-                    if (jdDate != 0.0d)
-                        value = new JDateTime(jdDate).convertToDate();
-                    break;
-                case INTEGER:
-                    long unixDate = cursor.getLong(columnIndex);
-                    if (unixDate != 0l)
-                        value = new Date(unixDate);
-                    break;
-            }
-        } else if (Serializable.class.isAssignableFrom(fieldType.getClass())
-                || Externalizable.class.isAssignableFrom(fieldType.getClass())) {
-            byte[] data = cursor.getBlob(columnIndex);
-            if (data != null && data.length > 0) {
-                ByteArrayInputStream bis = new ByteArrayInputStream(data);
-                ObjectInput in = null;
-                try {
-                    in = new ObjectInputStream(bis);
-                    value = in.readObject();
-                } catch (ClassNotFoundException | IOException e) {
-                    throw new LiteDatabaseException("Could not read serializable object from database",e);
-                } finally {
-                    try {
-                        bis.close();
-                    } catch (IOException ex) {
-                    }
-                    try {
-                        if (in != null) {
-                            in.close();
+                        try {
+                            if (in != null) {
+                                in.close();
+                            }
+                        } catch (IOException ex) {
                         }
-                    } catch (IOException ex) {
                     }
                 }
-            }
+                break;
         }
         return value;
     }
@@ -406,14 +467,11 @@ public class LiteBaseDao<T> {
      * @throws LiteDatabaseException
      */
     public void delete(String whereClause, String[] whereArgs) throws LiteDatabaseException {
-        try {
-            databaseHelper.getDatabase()
-                    .delete(annotationHelper.getTableName(),
-                            getDatabaseHelper().getLiteQuery().exchange(whereClause),
+            getDatabase()
+                    .delete(getTableName(),
+                            getLiteQuery().exchange(whereClause),
                             whereArgs);
-        } catch (AnnotationNotFound e) {
-            throw new LiteDatabaseException("",e);
-        }
+
     }
 
     /**
@@ -422,14 +480,15 @@ public class LiteBaseDao<T> {
      * @throws LiteDatabaseException
      */
     public void deleteByKey(Object key) throws LiteDatabaseException {
-        try {
-            delete("[" + annotationHelper.getPrimaryField().getName() + "] = ?",
-                    new String[]{
-                            key.toString()
-                    });
-        } catch (InvalidAnnotationData ex) {
-            throw new LiteDatabaseException("Could not delete object by key " + key, ex);
-        }
+        String primaryColumn = getTableMeta().getPrimaryKey();
+        delete("[" +
+                        (databaseHelper.isUseClassSchema()
+                                ? primaryColumn
+                                : getTableMeta().getColumns().get(primaryColumn).getColumnName())
+                        + "] = ?",
+                new String[]{
+                        key.toString()
+                });
     }
 
     /**
@@ -439,24 +498,32 @@ public class LiteBaseDao<T> {
      */
     public void delete(T obj) throws LiteDatabaseException {
         try {
-            deleteByKey(annotationHelper.getPrimaryField().get(obj));
-        } catch (IllegalAccessException | InvalidAnnotationData e) {
+            deleteByKey(getTableMeta().getColumns().get(getTableMeta().getPrimaryKey()).getValue(obj));
+        } catch (IllegalAccessException e) {
             throw new LiteDatabaseException("Could not delete object", e);
         }
     }
 
     /**
      * Insert new record
+     * Not use transaction by default
      * @param obj
      * @return the row id of created object
      * @throws LiteDatabaseException
      */
     public long insert(T obj) throws LiteDatabaseException {
+        return insert(obj, false);
+    }
+
+    public long insert(T obj, boolean useTransaction) throws LiteDatabaseException {
+        final BulkInsert<T> bulkInsert = newBulkInsert(useTransaction);
+        bulkInsert.begin();
         try {
-            return databaseHelper.getDatabase().insert(
-                    annotationHelper.getTableName(), null, fillContentValues(obj));
-        } catch (AnnotationNotFound annotationNotFound) {
-            throw new LiteDatabaseException("Could not insert new object", annotationNotFound);
+            long id = bulkInsert.execute(obj);
+            bulkInsert.success();
+            return id;
+        } finally {
+            bulkInsert.end();
         }
     }
 
@@ -466,7 +533,7 @@ public class LiteBaseDao<T> {
      * @return the list of created object id
      * @throws LiteDatabaseException
      */
-    public long[] insert(final List<T> list) throws LiteDatabaseException {
+    public long[] insert(final Collection<T> list) throws LiteDatabaseException {
         return insert(list, true);
     }
     /**
@@ -476,44 +543,77 @@ public class LiteBaseDao<T> {
      * @return the list of created object id
      * @throws LiteDatabaseException
      */
-    public long[] insert(final List<T> list, boolean useTransaction) throws LiteDatabaseException {
-        if (useTransaction)
-            databaseHelper.getDatabase().beginTransaction();
+    public long[] insert(final Collection<T> list, boolean useTransaction) throws LiteDatabaseException {
+        long[] ids = new long[list.size()];
+        final BulkInsert<T> bulkInsert = newBulkInsert(useTransaction);
+        bulkInsert.begin();
         try {
-            long[] ids = new long[list.size()];
-            for (int i = 0; i < list.size(); i++) {
-                final T obj = list.get(i);
-                ids[i] = insert(obj);
-            }
-            if (useTransaction)
-                databaseHelper.getDatabase().setTransactionSuccessful();
+            bulkInsert.execute(list);
+            bulkInsert.success();
             return ids;
         } finally {
-            if (useTransaction && databaseHelper.getDatabase().inTransaction())
-                databaseHelper.getDatabase().endTransaction();
+            bulkInsert.end();
         }
     }
 
 
     /**
      * Update record by primary key
+     * Not use transaction by default
      * @param obj
      * @return the number of rows affected
      * @throws LiteDatabaseException
      */
-    public int update(T obj) throws LiteDatabaseException {
+    public long update(T obj) throws LiteDatabaseException {
+        return update(obj, false);
+    }
+
+    /**
+     * Update record by primary key
+     * @param obj
+     * @param useTransaction
+     * @return
+     * @throws LiteDatabaseException
+     */
+    public long update(T obj, boolean useTransaction) throws LiteDatabaseException {
+        final BulkUpdate<T> bulkUpdate = newBulkUpdate(useTransaction);
+        bulkUpdate.begin();
         try {
-            String primaryColumn = annotationHelper.getPrimaryField().getName();
-            String primaryValue = annotationHelper.getPrimaryField().get(obj).toString();
-            return update(
-                    fillContentValues(obj),
-                    "[" + primaryColumn + "] = ?",
-                    new String[]{
-                            primaryValue
-                    });
-        } catch (InvalidAnnotationData | IllegalAccessException e) {
-            throw new LiteDatabaseException("Could not update object", e);
+            long length = bulkUpdate.execute(obj);
+            bulkUpdate.success();
+            return length;
+        } finally {
+            bulkUpdate.end();
         }
+    }
+
+    /**
+     *
+     * @param list
+     * @param useTransaction
+     * @return
+     * @throws LiteDatabaseException
+     */
+    public long[] update(Collection<T> list, boolean useTransaction) throws LiteDatabaseException {
+        final BulkUpdate<T> bulkUpdate = newBulkUpdate(useTransaction);
+        bulkUpdate.begin();
+        try {
+            long[] data = bulkUpdate.execute(list);
+            bulkUpdate.success();
+            return data;
+        } finally {
+            bulkUpdate.end();
+        }
+    }
+
+    /**
+     *
+     * @param list
+     * @return
+     * @throws LiteDatabaseException
+     */
+    public long[] update(Collection<T> list) throws LiteDatabaseException {
+        return update(list, true);
     }
 
     /**
@@ -525,14 +625,10 @@ public class LiteBaseDao<T> {
      * @throws LiteDatabaseException
      */
     public int update(ContentValues contentValues, String whereClause, String[] whereArgs) throws LiteDatabaseException {
-        try {
-            return databaseHelper.getDatabase().update(annotationHelper.getTableName(),
+            return getDatabase().update(getTableName(),
                     contentValues,
-                    getDatabaseHelper().getLiteQuery().exchange(whereClause),
+                    getLiteQuery().exchange(whereClause),
                     whereArgs);
-        } catch (AnnotationNotFound e) {
-            throw new LiteDatabaseException("Could not update record",e);
-        }
     }
 
     /**
@@ -550,19 +646,16 @@ public class LiteBaseDao<T> {
     public Cursor query(boolean distinct,
                         String selection, String[] selectionArgs, String groupBy,
                         String having, String orderBy, String limit) throws LiteDatabaseException {
-        try {
-            return databaseHelper.getDatabase().query(distinct,
-                    annotationHelper.getTableName(),
-                    annotationHelper.getColumns(),
-                    databaseHelper.getLiteQuery().exchange(tableClass, selection),
-                    selectionArgs,
-                    databaseHelper.getLiteQuery().exchange(tableClass, groupBy),
-                    databaseHelper.getLiteQuery().exchange(tableClass, having),
-                    databaseHelper.getLiteQuery().exchange(tableClass, orderBy),
-                    limit);
-        } catch (AnnotationNotFound e) {
-            throw new LiteDatabaseException("Could not query table " + tableClass.getName() ,e);
-        }
+        String sql = SQLiteQueryBuilder.buildQueryString(distinct,
+                "[" + (databaseHelper.isUseClassSchema() ? tableClass.getName() : getTableMeta().getTableName()) + "]",
+                databaseHelper.isUseClassSchema() ? getTableMeta().getSelectFields() : getColumns(),
+                selection,
+                groupBy,
+                having,
+                orderBy,
+                limit);
+        Log.d(this.getClass().getName(), "Execute query: " + sql);
+        return getDatabase().rawQueryWithFactory(null, getLiteQuery().exchange(sql), selectionArgs, null);
     }
 
     /**
@@ -626,11 +719,7 @@ public class LiteBaseDao<T> {
      * @return raw database cursor
      */
     public Cursor rawQuery(String sql, String[] args) throws LiteDatabaseException {
-        try {
-            return getDatabaseHelper().getDatabase().rawQuery(databaseHelper.getLiteQuery().exchange(sql), args);
-        } catch (AnnotationNotFound e) {
-            throw new LiteDatabaseException("Could not execute raw query",e);
-        }
+        return getDatabase().rawQuery(getLiteQuery().exchange(sql), args);
     }
 
     /**
@@ -640,13 +729,10 @@ public class LiteBaseDao<T> {
      * @throws LiteDatabaseException
      */
     public T get(Object key) throws LiteDatabaseException {
-        String primaryColumn;
-        try {
-            primaryColumn = annotationHelper.getPrimaryField().getName();
-        } catch (InvalidAnnotationData e) {
-            throw new LiteDatabaseException("Could not get primary field",e);
-        }
-        Cursor cursor = query("[" + primaryColumn + "] = ?", new String[] {key.toString()});
+        final String primaryColumn = getTableMeta().getPrimaryKey();
+        Cursor cursor = query("[" +
+                (databaseHelper.isUseClassSchema() ? primaryColumn : getTableMeta().getColumns().get(primaryColumn).getColumnName())
+                + "] = ?", new String[] {key.toString()});
         if (cursor.moveToFirst()) {
             try {
                 return toObject(cursor);
@@ -683,20 +769,86 @@ public class LiteBaseDao<T> {
      * @throws LiteDatabaseException
      */
     public int count(String selection,  String[] selectionArgs) throws LiteDatabaseException {
-        Cursor cursor;
+        Cursor cursor = null;
         try {
-            cursor = databaseHelper.getDatabase().rawQuery(
-                    "select count(*) from [" + annotationHelper.getTableName() + "]"
-                            + (selection == null ? "" : (" where " + databaseHelper.getLiteQuery().exchange(tableClass, selection))),
+            String sql = "select count(*) from [" +
+                    (databaseHelper.isUseClassSchema() ? tableClass.getName() : getTableMeta().getTableName())
+                    + "]"
+                    + (selection == null ? "" : (" where " + selection));
+            cursor = rawQuery(sql,
                     selectionArgs);
-        } catch (AnnotationNotFound e) {
-            throw new LiteDatabaseException("Could not get count of table " + tableClass.getName(),e);
+            cursor.moveToFirst();
+            return cursor.getInt(0);
+        }finally {
+            if (cursor != null)
+                cursor.close();
         }
-        cursor.moveToFirst();
-        int count= cursor.getInt(0);
-        cursor.close();
-        return count;
     }
 
+    /**
+     * Get new instance of bulk insert object. To speed up the insertion
+     * Use transaction by default
+     * @return bulk insert object
+     * @throws LiteDatabaseException
+     */
+    public BulkInsert<T> newBulkInsert() throws LiteDatabaseException {
+        return newBulkInsert(true);
+    }
 
+    /**
+     * Get new instance of bulk insert object. To speed up the insertion
+     * @param useTransaction
+     * @return
+     * @throws LiteDatabaseException
+     */
+    public BulkInsert<T> newBulkInsert(boolean useTransaction) throws LiteDatabaseException {
+        return new BulkInsert<T>(getDatabase(), getDatabaseHelper().getTableMeta(tableClass), useTransaction);
+    }
+
+    /**
+     * Get new instance of bulk update object. To speed up the updating
+     * Use transaction by default
+     * @return bulk update object
+     * @throws LiteDatabaseException
+     */
+    public BulkUpdate<T> newBulkUpdate() throws LiteDatabaseException {
+        return newBulkUpdate(true);
+    }
+
+    /**
+     * Get new instance of bulk update object. To speed up the updating
+     * @param useTransaction
+     * @return
+     * @throws LiteDatabaseException
+     */
+    public BulkUpdate<T> newBulkUpdate(boolean useTransaction) throws LiteDatabaseException {
+        return new BulkUpdate<T>(getDatabase(), getDatabaseHelper().getTableMeta(tableClass), useTransaction);
+    }
+
+    /**
+     * Get table meta data object
+     * @return table meta data
+     * @throws LiteDatabaseException
+     */
+    public LiteTableMeta getTableMeta() throws LiteDatabaseException {
+        return getDatabaseHelper().getTableMeta(tableClass);
+    }
+
+    /**
+     * Get table name
+     * @return table name
+     * @throws LiteDatabaseException
+     */
+    public String getTableName() throws LiteDatabaseException {
+        return getTableMeta().getTableName();
+    }
+
+    /**
+     * Get columns to select data
+     * @return columns of selection data
+     * @throws LiteDatabaseException
+     */
+    public String[] getColumns() throws LiteDatabaseException {
+        return getTableMeta().getSelectColumns();
+    }
 }

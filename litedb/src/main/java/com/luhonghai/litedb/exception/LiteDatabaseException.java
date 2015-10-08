@@ -31,6 +31,10 @@ package com.luhonghai.litedb.exception;
  */
 public class LiteDatabaseException extends Exception {
 
+    public LiteDatabaseException(String message) {
+        super(message);
+    }
+
     public LiteDatabaseException(String message, Throwable e) {
         super(message, e);
     }
