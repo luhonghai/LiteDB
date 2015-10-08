@@ -59,6 +59,11 @@ public @interface  LiteColumn {
     String name() default "";
 
     /**
+     * Column alias
+     */
+    String alias() default "";
+
+    /**
      * Simple default values
      * Input value must be valid SQLite value type
      * For example:

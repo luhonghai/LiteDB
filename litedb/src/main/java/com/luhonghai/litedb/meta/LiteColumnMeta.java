@@ -44,6 +44,10 @@ public class LiteColumnMeta {
      */
     private String columnName;
     /**
+     *
+     */
+    private String alias;
+    /**
      * Column type
      */
     private LiteColumnType columnType;
@@ -149,5 +153,13 @@ public class LiteColumnMeta {
 
     public Object getValue(Object object) throws IllegalAccessException {
         return field.get(object);
+    }
+
+    public String getAlias() {
+        return alias;
+    }
+
+    public void setAlias(String alias) {
+        this.alias = alias;
     }
 }

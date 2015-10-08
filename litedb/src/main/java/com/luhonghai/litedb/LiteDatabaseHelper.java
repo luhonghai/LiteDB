@@ -43,6 +43,7 @@ import com.luhonghai.litedb.meta.LiteTableMeta;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -103,13 +104,13 @@ public abstract class LiteDatabaseHelper {
     /**
      * A helper class is used to manage database.
      */
-    private final ConcurrentHashMap<String, LiteTableMeta> tableMetaData
+    private final Map<String, LiteTableMeta> tableMetaData
             = new ConcurrentHashMap<String, LiteTableMeta>();
 
     /**
      * A helper class is used to manage database.
      */
-    private final ConcurrentHashMap<String, AnnotationHelper> annotationHelpers
+    private final Map<String, AnnotationHelper> annotationHelpers
             = new ConcurrentHashMap<String, AnnotationHelper>();
 
     private boolean useClassSchema;
@@ -409,7 +410,26 @@ public abstract class LiteDatabaseHelper {
         return tableMetaData.get(clazz.getName());
     }
 
-    public Class[] getTableClasess() {
+    /**
+     * Get all defined table classes
+     * @return all table classes
+     */
+    public Class[] getTableClasses() {
         return mOpenHelper.getTableClass();
+    }
+
+    /**
+     * Try to load all table meta data
+     * @return table meta data map
+     * @throws LiteDatabaseException
+     */
+    public Map<String, LiteTableMeta> getTableMetaMap() throws LiteDatabaseException {
+        Class<?>[] tableClasses = getTableClasses();
+        if (tableClasses != null && tableMetaData.size() != tableClasses.length) {
+            for (Class<?> clazz : tableClasses) {
+                getTableMeta(clazz);
+            }
+        }
+        return tableMetaData;
     }
 }

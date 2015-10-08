@@ -412,7 +412,7 @@ public class AnnotationHelper {
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
             LiteColumnMeta columnMeta = columns.get(fieldName);
-            selectColumns[count] = columnMeta.getColumnName();
+            selectColumns[count] = "[" + columnMeta.getColumnName() + "]" + ("".equals(columnMeta.getAlias()) ? "" : " AS [" + columnMeta.getAlias() + "]" );
             selectFields[count] = fieldName;
             if (!columnMeta.isAutoincrement() && !insertFields.contains(fieldName)) {
                 insertFields.add(fieldName);
@@ -511,6 +511,7 @@ public class AnnotationHelper {
                 columnMeta.setIsPrimaryKey(liteColumn.isPrimaryKey());
                 columnMeta.setIsNotNull(liteColumn.isNotNull());
                 columnMeta.setDefaultValue(liteColumn.defaultValue());
+                columnMeta.setAlias(liteColumn.alias());
                 columns.put(field.getName(), columnMeta);
             }
         }

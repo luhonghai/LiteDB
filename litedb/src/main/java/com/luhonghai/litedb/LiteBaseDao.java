@@ -290,7 +290,12 @@ public class LiteBaseDao<T> {
             throws LiteDatabaseException {
         LiteColumnMeta columnMeta = getTableMeta().getColumns().get(fieldName);
         Object value = null;
-        int columnIndex = cursor.getColumnIndex(columnMeta.getColumnName());
+        int columnIndex;
+        if (!"".equals(columnMeta.getAlias())) {
+            columnIndex = cursor.getColumnIndex(columnMeta.getAlias());
+        } else {
+            columnIndex = cursor.getColumnIndex(columnMeta.getColumnName());
+        }
         if (columnIndex == -1) return null;
         switch (columnMeta.getFieldType()) {
             case LONG:
@@ -642,13 +647,14 @@ public class LiteBaseDao<T> {
                         String selection, String[] selectionArgs, String groupBy,
                         String having, String orderBy, String limit) throws LiteDatabaseException {
         String sql = SQLiteQueryBuilder.buildQueryString(distinct,
-                databaseHelper.isUseClassSchema() ? tableClass.getName() : getTableMeta().getTableName(),
+                "[" + (databaseHelper.isUseClassSchema() ? tableClass.getName() : getTableMeta().getTableName()) + "]",
                 databaseHelper.isUseClassSchema() ? getTableMeta().getSelectFields() : getColumns(),
                 selection,
                 groupBy,
                 having,
                 orderBy,
                 limit);
+        Log.d(this.getClass().getName(), "Execute query: " + sql);
         return getDatabase().rawQueryWithFactory(null, getLiteQuery().exchange(sql), selectionArgs, null);
     }
 

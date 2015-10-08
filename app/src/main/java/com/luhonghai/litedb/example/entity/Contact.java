@@ -42,10 +42,10 @@ public class Contact extends LiteEntity {
     @LiteColumn(name = "contact_name", isNotNull = true)
     private String name;
 
-    @LiteColumn(defaultValue = "'VN84000000000'")
+    @LiteColumn(defaultValue = "VN84000000000")
     private String phone;
 
-    @LiteColumn
+    @LiteColumn(alias = "extra_job")
     private String job;
 
     @LiteColumn

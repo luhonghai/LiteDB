@@ -20,7 +20,7 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-// Generated from nl\bigo\sqliteparser\SQLite.g4 by ANTLR 4.3
+// Generated from nl/bigo/sqliteparser/SQLite.g4 by ANTLR 4.3
 package nl.bigo.sqliteparser;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;

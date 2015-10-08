@@ -60,5 +60,5 @@ public @interface LiteDatabase {
      * If userClassSchema = false
      * Use real table name and column name in query
      */
-    boolean useClassSchema() default true;
+    boolean useClassSchema() default false;
 }

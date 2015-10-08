@@ -201,8 +201,10 @@ public abstract class AbstractBulk<T> {
                     sqLiteStatement.bindLong(index, Short.parseShort(fieldValue.toString()));
                     break;
                 case STRING:
-                default:
                     sqLiteStatement.bindString(index, fieldValue.toString());
+                    break;
+                default:
+                    sqLiteStatement.bindNull(index);
                     break;
             }
         }
