@@ -227,9 +227,6 @@ public class LiteBaseDao<T> {
                     case TEXT:
                         contentValues.put(key, sdfDateValue.format((Date) fieldValue));
                         break;
-                    case REAL:
-                        contentValues.put(key, new jodd.datetime.JDateTime(((Date) fieldValue).getTime()).getJulianDateDouble());
-                        break;
                     case INTEGER:
                         contentValues.put(key, ((Date) fieldValue).getTime());
                         break;
@@ -333,12 +330,6 @@ public class LiteBaseDao<T> {
                             } catch (ParseException e) {
                                 throw new LiteDatabaseException("Could not parse date value from database",e);
                             }
-                        break;
-                    case REAL:
-                        double jdDate = cursor.getDouble(columnIndex);
-                        if (jdDate != 0.0d) {
-                            value = new jodd.datetime.JDateTime(jdDate).convertToDate();
-                        }
                         break;
                     case INTEGER:
                         long unixDate = cursor.getLong(columnIndex);

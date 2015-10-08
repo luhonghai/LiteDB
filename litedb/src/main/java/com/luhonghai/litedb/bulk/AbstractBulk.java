@@ -120,13 +120,17 @@ public abstract class AbstractBulk<T> {
      */
     protected void bindObject(T object, String fieldName, int index) throws LiteDatabaseException {
         final LiteColumnMeta meta = tableMeta.getColumns().get(fieldName);
+        final String defaultValue = meta.getDefaultValue();
         final Field field = meta.getField();
         field.setAccessible(true);
-        final Object fieldValue;
+        Object fieldValue;
         try {
             fieldValue = field.get(object);
         } catch (IllegalAccessException e) {
             throw new LiteDatabaseException("could not get field value", e);
+        }
+        if (!"".equals(defaultValue)) {
+            fieldValue = defaultValue;
         }
         if (fieldValue == null) {
             sqLiteStatement.bindNull(index);
@@ -173,9 +177,6 @@ public abstract class AbstractBulk<T> {
                     switch (meta.getDateColumnType()) {
                         case TEXT:
                             sqLiteStatement.bindString(index, sdfDateValue.format((Date) fieldValue));
-                            break;
-                        case REAL:
-                            sqLiteStatement.bindDouble(index, new jodd.datetime.JDateTime(((Date) fieldValue).getTime()).getJulianDateDouble());
                             break;
                         case INTEGER:
                             sqLiteStatement.bindLong(index, ((Date) fieldValue).getTime());
