@@ -45,7 +45,6 @@ import com.luhonghai.litedb.exception.LiteDatabaseException;
 import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -150,7 +149,7 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
         // Try to list all record
         List<Contact> contactList = contactDao.listAll();
         for (Contact mContact : contactList) {
-            //assertEquals("VN84000000000", mContact.getPhone());
+            assertEquals("VN84000000000", mContact.getPhone());
             assertEquals("2nd Name", mContact.getName());
             assertEquals("Job", mContact.getJob());
             assertEquals(Double.MAX_VALUE, mContact.getBalance());
