@@ -42,8 +42,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import jodd.util.StringUtil;
-
 /**
  * Created by luhonghai on 07/09/15.
  * Help to analyze Lite DB annotation
